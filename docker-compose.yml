@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: codelab-app:latest
+    container_name: codelab_web
+    ports:
+      - "3000:3000"
+    environment:
+      # Ajuste conforme necessidade
+      DATABASE_URL: "file:./dev.db"
+      NODE_ENV: "production"
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15-alpine
+    container_name: codelab_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: codelab
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:
