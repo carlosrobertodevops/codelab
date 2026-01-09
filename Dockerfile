@@ -2,17 +2,20 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 
-# Habilita Yarn via Corepack (recomendado)
 RUN corepack enable
 
-# Copia manifests primeiro (melhora cache)
+# Copia manifests
 COPY package.json yarn.lock ./
 
-# Instala deps
-RUN yarn install --frozen-lockfile
+# IMPORTANTE:
+# Evita rodar postinstall (onde seu projeto chama prisma migrate deploy)
+RUN yarn install --frozen-lockfile --ignore-scripts
 
-# Copia o restante do código
+# Agora copia o restante (inclui prisma/schema.prisma)
 COPY . .
+
+# Gera Prisma Client (não precisa de banco)
+RUN npx prisma generate
 
 # Build do Next
 RUN yarn build
@@ -29,14 +32,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 EXPOSE 3000
 
-# Copia manifests e node_modules do build (inclui prisma CLI via devDeps se necessário)
+# Copia o necessário para rodar
 COPY --from=build /app/package.json /app/yarn.lock ./
 COPY --from=build /app/node_modules ./node_modules
-
-# Copia artefatos necessários
 COPY --from=build /app/.next ./.next
 COPY --from=build /app/public ./public
 COPY --from=build /app/prisma ./prisma
-COPY --from=build /app/next.config.* ./ 2>/dev/null || true
 
 CMD ["yarn", "start"]
