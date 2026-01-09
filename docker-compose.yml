@@ -1,13 +1,16 @@
+version: "3.9"
+
 name: codelab
+
 services:
-  postgres:
+  db:
     image: postgres:16-alpine
-    container_name: codelab-postgres
+    container_name: codelab_db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-codelab}
-      POSTGRES_USER: ${POSTGRES_USER:-codelab}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-codelab_dev_password}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -18,7 +21,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-codelab} -d ${POSTGRES_DB:-codelab}",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}",
         ]
       interval: 5s
       timeout: 3s
@@ -26,10 +29,10 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4:8
-    container_name: codelab-pgadmin
+    container_name: codelab_pgadmin
     restart: unless-stopped
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@local.dev}
@@ -46,17 +49,18 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: codelab-app
+    image: codelab-app:latest
+    container_name: codelab_web
     restart: unless-stopped
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
     env_file:
       - .env
     environment:
-      # Garanta que o app no container aponte para o serviço "postgres"
-      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-codelab}:${POSTGRES_PASSWORD:-codelab_dev_password}@postgres:5432/${POSTGRES_DB:-codelab}?schema=public}
-      NODE_ENV: production
+      # Garante que o app, dentro do container, aponte para o Postgres do compose
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-postgres}?schema=public}
+      NODE_ENV: ${NODE_ENV:-production}
       NEXT_TELEMETRY_DISABLED: "1"
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
@@ -64,8 +68,6 @@ services:
       - "${APP_PORT:-3000}:3000"
     networks:
       - codelab_net
-    # Opcional, mas recomendado em apps com Prisma:
-    # executa migrate deploy no start (requer prisma instalado no container)
     command: >
       sh -c "
       npx prisma migrate deploy &&

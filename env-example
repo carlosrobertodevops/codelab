@@ -5,7 +5,7 @@ POSTGRES_DB=
 POSTGRES_USER=
 POSTGRES_PASSWORD=
 
-DATABASE_URL=postgresql://codelab:codelab_dev_password@postgres:5432/codelab?schema=public
+DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres?schema=public
 PGADMIN_EMAIL=admin@local.dev
 PGADMIN_PASSWORD=
 
@@ -16,10 +16,24 @@ PGADMIN_PORT=5050
 # Clerk (ajuste conforme seu projeto)
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
 CLERK_SECRET_KEY=
+CLERK_WEBHOOK_SECRET=
+
+# Next and Clerk
 NEXT_PUBLIC_CLERK_SIGN_IN_URL=/auth/signin
 NEXT_PUBLIC_CLERK_SIGN_UP_URL=/auth/signup
 NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/
 NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/
+
+# Asaas
+ASAAS_API_KEY=
+ASAAS_API_URL=
+ASAAS_WEBHOOK_TOKEN=
+
+# Cloudflare
+CLOUDFLARE_ACCESS_ID=
+CLOUDFLARE_ACCESS_KEY=
+CLOUDFLARE_R2_BUCKET_NAME=
+CLOUDFLARE_FILE_BASE_PATH=
 
 # .env do Shadcn/Studio
 EMAIL=tenroberto2011@gmail.com
