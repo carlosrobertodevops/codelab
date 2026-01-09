@@ -26,7 +26,7 @@ NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/
 
 # Asaas
 ASAAS_API_KEY=
-ASAAS_API_URL=
+ASAAS_API_URL="https://api-sandbox.asaas.com/v3"
 ASAAS_WEBHOOK_TOKEN=
 
 # Cloudflare
