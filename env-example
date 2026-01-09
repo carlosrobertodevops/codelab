@@ -9,3 +9,6 @@ POSTGRES_DB=
 # .env do Shadcn/Studio
 EMAIL=tenroberto2011@gmail.com
 LICENSE_KEY=
+
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
