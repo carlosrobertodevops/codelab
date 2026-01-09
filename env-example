@@ -1,0 +1,11 @@
+
+DATABASE_URL=
+NODE_ENV=development
+
+POSTGRES_USER=
+POSTGRES_PASSWORD=
+POSTGRES_DB=
+
+# .env do Shadcn/Studio
+EMAIL=tenroberto2011@gmail.com
+LICENSE_KEY=

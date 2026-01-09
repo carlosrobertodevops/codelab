@@ -1,7 +1,7 @@
 version: "3.9"
 
 services:
-  web:
+  app:
     build:
       context: .
       dockerfile: Dockerfile
@@ -11,8 +11,8 @@ services:
       - "3000:3000"
     environment:
       # Ajuste conforme necessidade
-      DATABASE_URL: "file:./dev.db"
-      NODE_ENV: "production"
+      DATABASE_URL: $DATABASE_URL:-"file:./dev.db"
+      NODE_ENV: $NODE_ENV:-"development"
     volumes:
       - ./:/app
       - /app/node_modules
@@ -24,9 +24,9 @@ services:
     container_name: codelab_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: codelab
+      POSTGRES_USER: $POSTGRES_USER:-postgres
+      POSTGRES_PASSWORD: $POSTGRES_PASSWORD:-postgres
+      POSTGRES_DB: $POSTGRES_DB:-codelab
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
