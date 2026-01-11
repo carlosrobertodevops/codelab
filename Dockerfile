@@ -2,22 +2,22 @@
 FROM node:20-alpine AS build
 
 WORKDIR /app
-
-# Enable Yarn via Corepack
 RUN corepack enable
 
-# Copy manifests first to leverage Docker layer caching
+# Copy manifests first (cache)
 COPY package.json yarn.lock ./
 
-# IMPORTANT:
-# - This project runs Prisma commands in "postinstall".
-# - During Docker build we avoid running scripts to prevent DB-dependent commands from breaking the build.
+# Avoid running postinstall scripts during build (prisma migrate deploy etc.)
 RUN yarn install --frozen-lockfile --ignore-scripts
 
-# Copy source code (includes prisma/schema.prisma)
+# Copy source
 COPY . .
 
-# Generate Prisma Client (does not require DB connectivity)
+# Prevent "DATABASE_URL not found" if ANY build-time code path touches Prisma
+# (this is only for the build step; runtime uses .env via docker-compose)
+ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres?schema=public"
+
+# Generate Prisma Client
 RUN npx prisma generate
 
 # Build Next.js
@@ -28,7 +28,6 @@ RUN yarn build
 FROM node:20-alpine AS runner
 
 WORKDIR /app
-
 RUN corepack enable
 
 ENV NODE_ENV=production
@@ -37,7 +36,6 @@ ENV PORT=3000
 
 EXPOSE 3000
 
-# Copy runtime essentials
 COPY --from=build /app/package.json /app/yarn.lock ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/.next ./.next
