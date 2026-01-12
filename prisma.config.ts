@@ -1,12 +1,12 @@
-import "dotenv/config";
-import { defineConfig, env } from "prisma/config";
+import { defineConfig } from "prisma/config";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
-  migrations: {
-    path: "prisma/migrations",
-  },
   datasource: {
-    url: env("DATABASE_URL"),
+    // Importante para Docker build: durante o build nem sempre o DATABASE_URL existe.
+    // Mantemos um fallback seguro para permitir `prisma generate`.
+    url:
+      process.env.DATABASE_URL ??
+      "postgresql://postgres:postgres@db:5432/postgres?schema=public",
   },
 });

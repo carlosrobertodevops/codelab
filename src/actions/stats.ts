@@ -2,28 +2,16 @@
 
 import { prisma } from "@/lib/prisma";
 
-const getLastSevenDays = () => {
-  const dates = [];
+export async function getStats() {
+  const totalUsers = await prisma.user.count();
+  const totalCourses = await prisma.course.count();
 
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    date.setHours(0, 0, 0, 0);
-    dates.push(date);
-  }
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  return dates;
-};
-
-export const getNewUsersStats = async (): Promise<StatsChartData[]> => {
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  sevenDaysAgo.setHours(0, 0, 0, 0);
-
-  const users = await prisma.user.groupBy({
-    by: ["createdAt"],
+  const purchases = await prisma.enrollment.groupBy({
+    by: ["enrolledAt"],
     where: {
-      createdAt: {
+      enrolledAt: {
         gte: sevenDaysAgo,
       },
     },
@@ -31,54 +19,13 @@ export const getNewUsersStats = async (): Promise<StatsChartData[]> => {
       _all: true,
     },
     orderBy: {
-      createdAt: "asc",
+      enrolledAt: "asc",
     },
   });
 
-  const lastSevenDays = getLastSevenDays();
-  const usersCounts = new Map(
-    users.map((user) => [
-      user.createdAt.toISOString().split("T")[0],
-      user._count._all,
-    ])
-  );
-
-  return lastSevenDays.map((date) => ({
-    date,
-    count: usersCounts.get(date.toISOString().split("T")[0]) || 0,
-  }));
-};
-
-export const getPurchasedCoursesStats = async (): Promise<StatsChartData[]> => {
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  sevenDaysAgo.setHours(0, 0, 0, 0);
-
-  const purchases = await prisma.coursePurchase.groupBy({
-    by: ["createdAt"],
-    where: {
-      createdAt: {
-        gte: sevenDaysAgo,
-      },
-    },
-    _count: {
-      _all: true,
-    },
-    orderBy: {
-      createdAt: "asc",
-    },
-  });
-
-  const lastSevenDays = getLastSevenDays();
-  const purchasesCounts = new Map(
-    purchases.map((purchase) => [
-      purchase.createdAt.toISOString().split("T")[0],
-      purchase._count._all,
-    ])
-  );
-
-  return lastSevenDays.map((date) => ({
-    date,
-    count: purchasesCounts.get(date.toISOString().split("T")[0]) || 0,
-  }));
-};
+  return {
+    totalUsers,
+    totalCourses,
+    purchases,
+  };
+}

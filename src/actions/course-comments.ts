@@ -1,171 +1,101 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getUser } from "./user";
-import { checkRole } from "@/lib/clerk";
-import { formatName } from "@/lib/utils";
+import { getUser } from "@/lib/auth";
 
-export const getLessonComments = async (lessonId: string) => {
-  await getUser();
+type CreateCommentParams = {
+  lessonId: string;
+  content: string;
+  parentId?: string | null;
+};
 
+export async function getLessonComments(lessonId: string) {
   const comments = await prisma.lessonComment.findMany({
     where: { lessonId, parentId: null },
     include: {
       user: true,
-      parent: true,
       replies: {
         include: {
           user: true,
         },
+        orderBy: { createdAt: "asc" },
       },
     },
-    orderBy: {
-      createdAt: "asc",
-    },
+    orderBy: { createdAt: "asc" },
   });
 
   return comments;
-};
+}
 
-type CreateLessonCommentPayload = {
-  courseSlug: string;
-  lessonId: string;
-  content: string;
-  parentId?: string;
-};
+export async function createLessonComment(params: CreateCommentParams) {
+  const { lessonId, content, parentId } = params;
 
-export const createLessonComment = async ({
-  content,
-  courseSlug,
-  lessonId,
-  parentId,
-}: CreateLessonCommentPayload) => {
-  const { userId, user } = await getUser();
+  const user = await getUser();
+  if (!user) throw new Error("Unauthorized");
 
-  if (content.length > 500) {
-    throw new Error("Comentário deve ter no máximo 500 caracteres");
-  }
+  const lesson = await prisma.lesson.findUnique({
+    where: { id: lessonId },
+    include: { course: true },
+  });
 
-  const course = await prisma.course.findUnique({
+  if (!lesson) throw new Error("Lesson not found");
+
+  // Garante que o usuário está matriculado no curso da lição
+  const userId = user.id;
+  const course = lesson.course;
+
+  // No schema, a “compra” é representada por Enrollment (chave composta userId+courseId).
+  const userHasCourse = await prisma.enrollment.findUnique({
     where: {
-      slug: courseSlug,
+      userId_courseId: {
+        userId,
+        courseId: course.id,
+      },
     },
   });
 
-  if (!course) {
-    throw new Error("Curso não encontrado");
-  }
-
-  const userHasCourse = await prisma.coursePurchase.findFirst({
-    where: {
-      courseId: course.id,
-      userId,
-    },
-  });
-
-  if (!userHasCourse) {
-    throw new Error("Você não possui acesso a este curso");
-  }
-
-  const lesson = await prisma.courseLesson.findUnique({
-    where: {
-      id: lessonId,
-    },
-  });
-
-  if (!lesson) {
-    throw new Error("Aula não encontrada");
-  }
+  if (!userHasCourse) throw new Error("Forbidden");
 
   const comment = await prisma.lessonComment.create({
     data: {
       content,
       lessonId,
       userId,
-      parentId,
+      parentId: parentId ?? null,
     },
   });
 
-  if (parentId) {
-    const parentComment = await prisma.lessonComment.findUnique({
-      where: { id: parentId },
-    });
-
-    const parentUserId = parentComment?.userId;
-
-    if (parentUserId && parentUserId !== userId) {
-      await prisma.notification.create({
-        data: {
-          userId: parentUserId,
-          title: "Nova resposta ao seu comentário",
-          content: `${formatName(
-            user.firstName,
-            user.lastName
-          )} respondeu ao seu comentário no curso "${course.title}"`,
-          link: `/courses/${courseSlug}/${lesson.moduleId}/lesson/${lessonId}`,
-        },
-      });
-    }
-  }
-
   return comment;
-};
+}
 
-export const deleteComment = async (commentId: string) => {
-  const { userId } = await getUser();
-
-  const isAdmin = await checkRole("admin");
+export async function deleteLessonComment(commentId: string) {
+  const user = await getUser();
+  if (!user) throw new Error("Unauthorized");
 
   const comment = await prisma.lessonComment.findUnique({
     where: { id: commentId },
+    include: { lesson: { include: { course: true } } },
   });
 
-  if (!comment) {
-    throw new Error("Comentário não encontrado");
-  }
+  if (!comment) throw new Error("Comment not found");
 
-  if (!isAdmin && comment.userId !== userId) {
-    throw new Error("Você não tem permissão para deletar este comentário");
-  }
+  const userId = user.id;
 
-  await prisma.lessonComment.delete({
-    where: { id: commentId },
-  });
-};
-
-export const getAdminComments = async (): Promise<AdminComment[]> => {
-  const isAdmin = await checkRole("admin");
-
-  if (!isAdmin) throw new Error("Unauthorized");
-
-  const comments = await prisma.lessonComment.findMany({
+  // Garante que o usuário está matriculado no curso da lição
+  const userHasCourse = await prisma.enrollment.findUnique({
     where: {
-      parentId: null,
-    },
-    include: {
-      user: true,
-      lesson: {
-        include: {
-          module: {
-            include: {
-              course: true,
-            },
-          },
-        },
+      userId_courseId: {
+        userId,
+        courseId: comment.lesson.course.id,
       },
-      _count: {
-        select: {
-          replies: true,
-        },
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
     },
   });
 
-  return comments.map(({ _count, ...comment }) => ({
-    ...comment,
-    repliesCount: _count.replies,
-  }));
-};
+  if (!userHasCourse) throw new Error("Forbidden");
+
+  if (comment.userId !== userId) throw new Error("Forbidden");
+
+  await prisma.lessonComment.delete({ where: { id: commentId } });
+
+  return { ok: true };
+}

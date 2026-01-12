@@ -1,286 +1,187 @@
 "use server";
 
-import {
-  calculateInstallmentOptions,
-  formatName,
-  unMockValue,
-} from "@/lib/utils";
-import { ServerError } from "@/server/error";
-import {
-  creditCardCheckoutSchema,
-  CreditCardCheckoutSchema,
-  pixCheckoutSchema,
-  PixCheckoutSchema,
-} from "@/server/schemas/payment";
-import { getUser } from "./user";
 import { prisma } from "@/lib/prisma";
-import { asaasApi } from "@/lib/asaas";
-import { headers } from "next/headers";
-import { isAxiosError } from "axios";
+import { getUser } from "@/lib/auth";
+import { AsaasCustomerResponse, AsaasPaymentResponse } from "@/types/asaas";
 
-export const createPixCheckout = async (payload: PixCheckoutSchema) => {
-  const input = pixCheckoutSchema.safeParse(payload);
+const ASAAS_API_URL = process.env.ASAAS_API_URL!;
+const ASAAS_API_KEY = process.env.ASAAS_API_KEY!;
 
-  if (!input.success) {
-    throw new ServerError({
-      message: "Falha ao processar o pagamento",
-      code: "INVALID_DATA",
-    });
+type CreatePixCheckoutParams = {
+  courseId: string;
+};
+
+type CreateCreditCardCheckoutParams = {
+  courseId: string;
+  creditCard: {
+    holderName: string;
+    number: string;
+    expiryMonth: string;
+    expiryYear: string;
+    ccv: string;
+  };
+  creditCardHolderInfo: {
+    name: string;
+    email: string;
+    cpfCnpj: string;
+    postalCode: string;
+    addressNumber: string;
+    phone: string;
+  };
+};
+
+async function asaasFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${ASAAS_API_URL}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      access_token: ASAAS_API_KEY,
+      ...(init?.headers ?? {}),
+    },
+    cache: "no-store",
+  });
+
+  const json = await res.json();
+
+  if (!res.ok) {
+    throw new Error(
+      typeof json?.errors?.[0]?.description === "string"
+        ? json.errors[0].description
+        : `Asaas request failed (${res.status})`,
+    );
   }
 
-  const {
-    courseId,
-    cpf: rawCpf,
-    name,
-    postalCode: rawPostalCode,
-    addressNumber,
-  } = input.data;
+  return json as T;
+}
 
-  const cpf = unMockValue(rawCpf);
-  const postalCode = unMockValue(rawPostalCode);
+export async function createPixCheckout({ courseId }: CreatePixCheckoutParams) {
+  const user = await getUser();
+  if (!user) throw new Error("Unauthorized");
 
-  const { userId, user } = await getUser();
+  const userId = user.id;
 
   const course = await prisma.course.findUnique({
     where: { id: courseId },
   });
 
-  if (!course) {
-    throw new ServerError({
-      message: "Curso não encontrado",
-      code: "NOT_FOUND",
-    });
-  }
+  if (!course) throw new Error("Course not found");
 
-  const userHasCourse = await prisma.coursePurchase.findFirst({
+  // No schema, a “compra” é representada por Enrollment (chave composta userId+courseId).
+  const userHasCourse = await prisma.enrollment.findUnique({
     where: {
-      courseId,
-      userId,
+      userId_courseId: {
+        userId,
+        courseId,
+      },
     },
   });
 
-  if (userHasCourse) {
-    throw new ServerError({
-      message: "Você já possui acesso a este curso",
-      code: "CONFLICT",
-    });
-  }
+  if (userHasCourse) throw new Error("User already has this course");
 
-  let customerId = user?.asaasId;
+  // Cria/recupera customer no Asaas
+  const customer = await asaasFetch<AsaasCustomerResponse>("/customers", {
+    method: "POST",
+    body: JSON.stringify({
+      name: user.fullName ?? user.emailAddresses?.[0]?.emailAddress ?? "Cliente",
+      email: user.emailAddresses?.[0]?.emailAddress,
+      externalReference: userId,
+    }),
+  });
 
-  if (!customerId) {
-    const { data: newCustomer } = await asaasApi.post("/customers", {
-      name: name ?? formatName(user.firstName, user.lastName),
-      email: user.email,
-      cpfCnpj: cpf,
-      postalCode,
-      addressNumber,
-    });
+  // Cria pagamento PIX
+  const payment = await asaasFetch<AsaasPaymentResponse>("/payments", {
+    method: "POST",
+    body: JSON.stringify({
+      customer: customer.id,
+      billingType: "PIX",
+      value: course.price,
+      dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10),
+      description: `Compra do curso: ${course.title}`,
+      externalReference: courseId,
+    }),
+  });
 
-    if (!newCustomer) {
-      throw new ServerError({
-        message: "Falha ao processar o pagamento",
-        code: "FAILED_TO_CREATE_CUSTOMER",
-      });
-    }
+  // Cria enrollment pendente associado ao payment
+  await prisma.enrollment.create({
+    data: {
+      userId,
+      courseId,
+      paymentId: payment.id,
+      status: "PENDING",
+    },
+  });
 
-    customerId = newCustomer.id as string;
+  return payment;
+}
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: { asaasId: customerId },
-    });
-  }
+export async function createCreditCardCheckout(
+  params: CreateCreditCardCheckoutParams,
+) {
+  const user = await getUser();
+  if (!user) throw new Error("Unauthorized");
 
-  const price = course?.discountPrice ?? course?.price;
-
-  const paymentPayload = {
-    customer: customerId,
-    billingType: "PIX",
-    value: price,
-    dueDate: new Date().toISOString().split("T")[0],
-    description: `Compra do curso "${course.title}"`,
-    externalReference: courseId,
-  };
-
-  const { data } = await asaasApi.post("/payments", paymentPayload);
-
-  return {
-    invoiceId: data.id as string,
-  };
-};
-
-export const createCreditCardCheckout = async (
-  payload: CreditCardCheckoutSchema
-) => {
-  const input = creditCardCheckoutSchema.safeParse(payload);
-
-  if (!input.success) {
-    throw new ServerError({
-      message: "Falha ao processar o pagamento",
-      code: "INVALID_DATA",
-    });
-  }
-
-  const {
-    courseId,
-    name,
-    cardCvv,
-    cardNumber,
-    cardValidThru,
-    installments,
-    cpf: rawCpf,
-    addressNumber,
-    phone,
-    postalCode: rawPostalCode,
-  } = input.data;
-
-  const cpf = unMockValue(rawCpf);
-  const postalCode = unMockValue(rawPostalCode);
-
-  const { userId, user } = await getUser();
+  const userId = user.id;
 
   const course = await prisma.course.findUnique({
-    where: { id: courseId },
+    where: { id: params.courseId },
   });
 
-  if (!course) {
-    throw new ServerError({
-      message: "Curso não encontrado",
-      code: "NOT_FOUND",
-    });
-  }
+  if (!course) throw new Error("Course not found");
 
-  const userHasCourse = await prisma.coursePurchase.findFirst({
+  const userHasCourse = await prisma.enrollment.findUnique({
     where: {
-      courseId,
-      userId,
+      userId_courseId: {
+        userId,
+        courseId: params.courseId,
+      },
     },
   });
 
-  if (userHasCourse) {
-    throw new ServerError({
-      message: "Você já possui acesso a este curso",
-      code: "CONFLICT",
-    });
-  }
+  if (userHasCourse) throw new Error("User already has this course");
 
-  let customerId = user?.asaasId;
+  const customer = await asaasFetch<AsaasCustomerResponse>("/customers", {
+    method: "POST",
+    body: JSON.stringify({
+      name:
+        params.creditCardHolderInfo.name ??
+        user.fullName ??
+        user.emailAddresses?.[0]?.emailAddress ??
+        "Cliente",
+      email: params.creditCardHolderInfo.email,
+      cpfCnpj: params.creditCardHolderInfo.cpfCnpj,
+      postalCode: params.creditCardHolderInfo.postalCode,
+      addressNumber: params.creditCardHolderInfo.addressNumber,
+      phone: params.creditCardHolderInfo.phone,
+      externalReference: userId,
+    }),
+  });
 
-  if (!customerId) {
-    const { data: newCustomer } = await asaasApi.post("/customers", {
-      name: name ?? formatName(user.firstName, user.lastName),
-      email: user.email,
-      cpfCnpj: cpf,
-      postalCode,
-      addressNumber,
-    });
+  const payment = await asaasFetch<AsaasPaymentResponse>("/payments", {
+    method: "POST",
+    body: JSON.stringify({
+      customer: customer.id,
+      billingType: "CREDIT_CARD",
+      value: course.price,
+      dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10),
+      description: `Compra do curso: ${course.title}`,
+      externalReference: params.courseId,
+      creditCard: params.creditCard,
+      creditCardHolderInfo: params.creditCardHolderInfo,
+    }),
+  });
 
-    if (!newCustomer) {
-      throw new ServerError({
-        message: "Falha ao processar o pagamento",
-        code: "FAILED_TO_CREATE_CUSTOMER",
-      });
-    }
-
-    customerId = newCustomer.id as string;
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { asaasId: customerId },
-    });
-  }
-
-  const price = course?.discountPrice ?? course?.price;
-
-  const installmentOptions = calculateInstallmentOptions(price);
-  const installmentData = installmentOptions.find(
-    (item) => item.installments === installments
-  );
-
-  const installmentTotal = installmentData?.total ?? price;
-
-  const nextHeader = await headers();
-
-  const remoteIp =
-    nextHeader.get("x-real-ip") ||
-    nextHeader.get("x-forwarded-for") ||
-    nextHeader.get("x-client-ip");
-
-  const paymentPayload = {
-    customer: customerId,
-    billingType: "CREDIT_CARD",
-    value: installmentTotal,
-    dueDate: new Date().toISOString().split("T")[0],
-    description: `Compra do curso "${course.title}"`,
-    externalReference: course.id,
-    creditCard: {
-      holderName: name,
-      number: unMockValue(cardNumber),
-      expiryMonth: cardValidThru.split("/")[0],
-      expiryYear: cardValidThru.split("/")[1],
-      ccv: cardCvv,
+  await prisma.enrollment.create({
+    data: {
+      userId,
+      courseId: params.courseId,
+      paymentId: payment.id,
+      status: "PENDING",
     },
-    creditCardHolderInfo: {
-      name,
-      email: user.email,
-      cpfCnpj: cpf,
-      postalCode,
-      addressNumber,
-      phone,
-    },
-    remoteIp,
-    installmentCount: installments > 1 ? installments : undefined,
-    installmentValue:
-      installments > 1 ? installmentData?.installmentValue : undefined,
-  };
+  });
 
-  try {
-    await asaasApi.post("/payments", paymentPayload);
-  } catch (error) {
-    if (!isAxiosError(error)) {
-      throw new ServerError({
-        message: "Falha ao processar o pagamento",
-        code: "FAILED_TO_CREATE_PAYMENT",
-      });
-    }
-
-    console.error(error?.response?.data);
-
-    const firstErrorDescription =
-      (error?.response?.data?.errors?.[0]?.description as string) ?? "";
-
-    if (firstErrorDescription.includes("não autorizada")) {
-      throw new ServerError({
-        code: "NOT_AUTHORIZED",
-        message:
-          "Transação não autorizada. Verifique os dados do cartão de crédito e tente novamente.",
-      });
-    }
-
-    throw new ServerError({
-      message: "Falha ao processar o pagamento",
-      code: "FAILED_TO_CREATE_PAYMENT",
-    });
-  }
-};
-
-export const getPixQrCode = async (invoiceId: string) => {
-  await getUser();
-
-  const { data } = await asaasApi.get<PixResponse>(
-    `/payments/${invoiceId}/pixQrCode`
-  );
-
-  return data;
-};
-
-export const getInvoiceStatus = async (invoiceId: string) => {
-  await getUser();
-
-  const { data } = await asaasApi.get(`/payments/${invoiceId}`);
-
-  return {
-    status: data.status as string,
-  };
-};
+  return payment;
+}
