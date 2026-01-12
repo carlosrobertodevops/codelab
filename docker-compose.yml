@@ -50,12 +50,12 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
       PORT: "3000"
 
-      # Prisma 7: a URL fica no prisma.config.ts e também usada no adapter (src/lib/prisma.ts)
+      # Prisma v7 usa DATABASE_URL (lido via prisma.config.ts + env)
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/postgres?schema=public}
 
-      # Clerk
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+
     ports:
       - "3000:3000"
     depends_on:

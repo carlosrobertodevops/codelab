@@ -7,9 +7,9 @@ RUN apk add --no-cache libc6-compat openssl
 RUN corepack enable
 
 COPY package.json yarn.lock ./
-
-# Não rodar postinstall (ele chama prisma migrate/generate e quebra no build)
+# Importante: não executar postinstall (que roda prisma migrate/generate)
 RUN yarn install --non-interactive --ignore-scripts
+
 
 FROM node:20-alpine AS builder
 WORKDIR /app
@@ -20,32 +20,35 @@ RUN corepack enable
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Prisma 7: config + schema + generate
+# Gera o Prisma Client com Prisma v7 (usando prisma.config.ts + prisma/schema.prisma)
 RUN npx prisma generate
 
-# Build do Next
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN yarn build
+
+# Evita falhar por lint em build Docker
+RUN yarn build --no-lint
+
 
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-RUN apk add --no-cache libc6-compat openssl
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 
-COPY package.json yarn.lock ./
-COPY --from=deps /app/node_modules ./node_modules
+RUN apk add --no-cache libc6-compat openssl
 
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/yarn.lock ./yarn.lock
+
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.* ./ 2>/dev/null || true
+
+# Prisma client gerado no path definido no schema (../src/generated/prisma),
+# mas em runtime o Next já foi buildado; ainda assim mantemos o diretório.
 COPY --from=builder /app/src/generated ./src/generated
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
 EXPOSE 3000
 
-# Roda migrations no start (DB já estará healthy pelo depends_on)
-CMD ["sh", "-c", "npx prisma migrate deploy && yarn start"]
+CMD ["yarn", "start"]

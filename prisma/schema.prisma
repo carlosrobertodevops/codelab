@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
   output   = "../src/generated/prisma"
 }
 
@@ -14,89 +14,116 @@ enum CourseDifficulty {
 }
 
 model User {
-  id            String          @id @default(cuid())
-  name          String?
-  email         String?         @unique
-  image         String?
-  clerkUserId   String?         @unique
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id       String  @id @default(cuid())
+  clerkId  String  @unique
+  name     String
+  email    String  @unique
+  imageUrl String?
 
-  enrollments   Enrollment[]
-  lessonComments LessonComment[]
+  asaasId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  purchases        CoursePurchase[]
+  lessonComments   LessonComment[]
+  notifications    Notification[]
+  completedLessons CompletedLesson[]
 }
 
 model Course {
-  id              String          @id @default(cuid())
-  title           String
-  slug            String          @unique
-  description     String
-  shortDescription String?
-  thumbnailUrl    String?
-  difficulty      CourseDifficulty @default(BEGINNER)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id               String           @id @default(cuid())
+  title            String
+  description      String
+  shortDescription String
+  thumbnail        String
+  difficulty       CourseDifficulty
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
-  modules         CourseModule[]
-  enrollments     Enrollment[]
-  lessonComments  LessonComment[]
+  modules   CourseModule[]
+  purchases CoursePurchase[]
 }
 
 model CourseModule {
-  id          String        @id @default(cuid())
+  id          String   @id @default(cuid())
   title       String
   description String
-  order       Int
+  position    Int
   courseId    String
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  course      Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  lessons     CourseLesson[]
+  course  Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
 }
 
-model CourseLesson {
-  id          String       @id @default(cuid())
+model Lesson {
+  id          String   @id @default(cuid())
   title       String
   description String
-  order       Int
-  slug        String
-  content     String?
-  videoUrl    String?
+  videoId     String
+  position    Int
   moduleId    String
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  module      CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  comments    LessonComment[]
+  module    CourseModule      @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  completed CompletedLesson[]
+  comments  LessonComment[]
 }
 
-model Enrollment {
+model CompletedLesson {
   id        String   @id @default(cuid())
   userId    String
-  courseId  String
+  lessonId  String
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, courseId])
+  @@unique([userId, lessonId])
 }
 
 model LessonComment {
-  id        String   @id @default(cuid())
-  content   String
-  lessonId  String
-  userId    String
+  id      String @id @default(cuid())
+  content String
+
+  lessonId String
+  userId   String
+
   parentId  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  lesson    CourseLesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parent    LessonComment? @relation("CommentToReplies", fields: [parentId], references: [id])
-  replies   LessonComment[] @relation("CommentToReplies")
+  lesson  Lesson          @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  LessonComment?  @relation("LessonCommentToParent", fields: [parentId], references: [id], onDelete: Cascade)
+  replies LessonComment[] @relation("LessonCommentToParent")
+}
 
-  courseId  String?
-  course    Course?        @relation(fields: [courseId], references: [id], onDelete: SetNull)
+model CoursePurchase {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String
+  message   String
+  read      Boolean  @default(false)
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
