@@ -1,3 +1,87 @@
+# name: codelab
+
+# services:
+#   db:
+#     image: postgres:16-alpine
+#     container_name: codelab_db
+#     restart: unless-stopped
+#     env_file:
+#       - .env
+#     environment:
+#       # Defaults caso não existam no .env
+#       POSTGRES_USER: postgres
+#       POSTGRES_PASSWORD: postgres
+#       POSTGRES_DB: postgres
+#     ports:
+#       - '5432:5432'
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#     networks:
+#       - codelab_net
+#     healthcheck:
+#       test: ['CMD-SHELL', 'pg_isready -U postgres -d postgres']
+#       interval: 5s
+#       timeout: 3s
+#       retries: 20
+
+#   pgadmin:
+#     image: dpage/pgadmin4:9.11
+#     container_name: codelab_pgadmin
+#     restart: unless-stopped
+#     env_file:
+#       - .env
+#     environment:
+#       # Defaults caso não existam no .env
+#       PGADMIN_DEFAULT_EMAIL: admin@local.dev
+#       PGADMIN_DEFAULT_PASSWORD: admin123
+#       PGADMIN_CONFIG_SERVER_MODE: 'False'
+#     depends_on:
+#       db:
+#         condition: service_healthy
+#     ports:
+#       - '5050:80'
+#     volumes:
+#       - pgadmin_data:/var/lib/pgadmin
+#     networks:
+#       - codelab_net
+
+#   app:
+#     container_name: codelab_web
+#     restart: unless-stopped
+#     pull_policy: never
+#     build:
+#       context: .
+#       dockerfile: Dockerfile
+#     env_file:
+#       - .env
+#     environment:
+#       # Mantém só o essencial e SEM interpolação de variáveis com ${...}
+#       NODE_ENV: production
+#       NEXT_TELEMETRY_DISABLED: '1'
+#       PORT: '3000'
+#       HOSTNAME: '0.0.0.0'
+#     depends_on:
+#       db:
+#         condition: service_healthy
+#     ports:
+#       - '3000:3000'
+#     networks:
+#       - codelab_net
+#     command: >
+#       sh -c "
+#       npx prisma migrate deploy &&
+#       npx prisma generate &&
+#       yarn start
+#       "
+
+# networks:
+#   codelab_net:
+#     driver: bridge
+
+# volumes:
+#   postgres_data:
+#   pgadmin_data:
+
 name: codelab
 
 services:
@@ -8,7 +92,6 @@ services:
     env_file:
       - .env
     environment:
-      # Defaults caso não existam no .env
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
@@ -25,13 +108,12 @@ services:
       retries: 20
 
   pgadmin:
-    image: dpage/pgadmin4:9.11
+    image: dpage/pgadmin4:8
     container_name: codelab_pgadmin
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      # Defaults caso não existam no .env
       PGADMIN_DEFAULT_EMAIL: admin@local.dev
       PGADMIN_DEFAULT_PASSWORD: admin123
       PGADMIN_CONFIG_SERVER_MODE: 'False'
@@ -55,7 +137,6 @@ services:
     env_file:
       - .env
     environment:
-      # Mantém só o essencial e SEM interpolação de variáveis com ${...}
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: '1'
       PORT: '3000'
