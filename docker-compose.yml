@@ -1,3 +1,4 @@
+
 # name: codelab
 
 # services:
@@ -14,12 +15,16 @@
 #     volumes:
 #       - postgres_data:/var/lib/postgresql/data
 #     healthcheck:
-#       test: ['CMD-SHELL', 'pg_isready -U postgres -d postgres']
+#       test:
+#         [
+#           'CMD-SHELL',
+#           'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}',
+#         ]
 #       interval: 5s
 #       timeout: 3s
 #       retries: 30
-#   networks:
-#     - codelab_net
+#     networks:
+#       - codelab_net
 
 #   pgadmin:
 #     image: dpage/pgadmin4:8
@@ -29,12 +34,6 @@
 #       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@local.dev}
 #       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin123}
 #       PGADMIN_CONFIG_SERVER_MODE: 'False'
-#     command: >
-#       sh -c "
-#       npx prisma migrate deploy &&
-#       npx prisma generate &&
-#       yarn start
-#       "
 #     ports:
 #       - '5050:80'
 #     depends_on:
@@ -56,24 +55,32 @@
 #       NEXT_TELEMETRY_DISABLED: '1'
 #       PORT: '3000'
 
-#       # Prisma 7 lê DATABASE_URL via prisma.config.ts (dotenv/config) e via process.env no adapter
+#       # Prisma / DB
 #       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/postgres?schema=public}
 
-#       # Clerk: coloque suas chaves reais aqui
-#       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
-#       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+#       # Clerk (mantém como variável; você já tem no .env)
+#       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}
+#       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-}
 
 #     ports:
 #       - '3000:3000'
 #     depends_on:
 #       db:
 #         condition: service_healthy
+#     command: >
+#       sh -c "
+#       yarn prisma:generate &&
+#       yarn prisma:migrate:deploy &&
+#       yarn build &&
+#       yarn start
+#       "
 #     networks:
 #       - codelab_net
 
 # networks:
 #   codelab_net:
 #     driver: bridge
+
 # volumes:
 #   postgres_data:
 #   pgadmin_data:
@@ -90,15 +97,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
     ports:
-      - '5432:5432'
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test:
-        [
-          'CMD-SHELL',
-          'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}',
-        ]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}"]
       interval: 5s
       timeout: 3s
       retries: 30
@@ -112,9 +115,9 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@local.dev}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin123}
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_SERVER_MODE: "False"
     ports:
-      - '5050:80'
+      - "5050:80"
     depends_on:
       db:
         condition: service_healthy
@@ -131,28 +134,25 @@ services:
       dockerfile: Dockerfile
     environment:
       NODE_ENV: production
-      NEXT_TELEMETRY_DISABLED: '1'
-      PORT: '3000'
+      NEXT_TELEMETRY_DISABLED: "1"
+      PORT: "3000"
 
-      # Prisma / DB
+      # Prisma 7: o Prisma CLI lê DATABASE_URL via prisma.config.ts (dotenv/config)
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/postgres?schema=public}
 
-      # Clerk (mantém como variável; você já tem no .env)
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}
-      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-}
+      # Clerk (coloque reais no .env). Mantém default para não quebrar build.
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+
+      # Flags do entrypoint
+      PRISMA_MIGRATE_DEPLOY: ${PRISMA_MIGRATE_DEPLOY:-1}
+      PRISMA_SEED: ${PRISMA_SEED:-0}
 
     ports:
-      - '3000:3000'
+      - "3000:3000"
     depends_on:
       db:
         condition: service_healthy
-    command: >
-      sh -c "
-      yarn prisma:generate &&
-      yarn prisma:migrate:deploy &&
-      yarn build &&
-      yarn start
-      "
     networks:
       - codelab_net
 

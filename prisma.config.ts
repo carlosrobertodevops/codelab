@@ -1,25 +1,11 @@
-// import "dotenv/config";
-// import { defineConfig, env } from "prisma/config";
+import "dotenv/config";
+import { defineConfig, env } from "prisma/config";
 
-// export default defineConfig({
-//   schema: "prisma/schema.prisma",
-//   migrations: {
-//     path: "prisma/migrations"
-//   },
-//   datasource: {
-//     url: env("DATABASE_URL")
-//   }
-// });
-
-import 'dotenv/config'
-import { defineConfig, env } from 'prisma/config'
-
+// Prisma 7+: URLs de conexão para Migrate/CLI saem do schema.prisma
+// e passam a viver aqui.
 export default defineConfig({
-  schema: 'prisma/schema.prisma',
-  migrations: {
-    path: 'prisma/migrations',
-  },
+  schema: "prisma/schema.prisma",
   datasource: {
-    url: env('DATABASE_URL'),
+    url: env("DATABASE_URL"),
   },
-})
+});

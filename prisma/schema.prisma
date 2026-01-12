@@ -1,199 +1,6 @@
-// generator client {
-//   provider        = "prisma-client-js"
-//   output          = "../src/generated/prisma"
-//   previewFeatures = ["fullTextSearchPostgres"]
-// }
-
-// datasource db {
-//   provider = "postgresql"
-// }
-
-// model User {
-//   id          String  @id @default(cuid())
-//   firstName   String
-//   lastName    String?
-//   email       String  @unique
-//   clerkUserId String  @unique
-//   imageUrl    String?
-//   asaasId     String?
-
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-
-//   completedLessons CompletedLesson[]
-//   lessonComments   LessonComment[]
-//   courses          CoursePurchase[]
-//   notifications    Notification[]
-
-//   @@map("users")
-// }
-
-// model CourseTag {
-//   id   String @id @default(cuid())
-//   name String @unique
-
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-
-//   course   Course? @relation(fields: [courseId], references: [id])
-//   courseId String?
-
-//   @@map("course_tags")
-// }
-
-// enum CourseStatus {
-//   DRAFT
-//   PUBLISHED
-// }
-
-// enum CourseDifficulty {
-//   EASY
-//   MEDIUM
-//   HARD
-// }
-
-// model Course {
-//   id String @id @default(cuid())
-
-//   status CourseStatus @default(DRAFT)
-
-//   title            String
-//   slug             String           @unique
-//   description      String
-//   shortDescription String?
-//   thumbnail        String
-//   price            Float
-//   discountPrice    Float?
-//   tags             CourseTag[]
-//   difficulty       CourseDifficulty @default(EASY)
-
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-
-//   modules          CourseModule[]
-//   completedLessons CompletedLesson[]
-//   purchases        CoursePurchase[]
-
-//   @@map("courses")
-// }
-
-// model CourseModule {
-//   id String @id @default(cuid())
-
-//   title       String
-//   description String
-
-//   courseId String
-//   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
-
-//   order Int
-
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-
-//   lessons CourseLesson[]
-
-//   @@map("course_modules")
-// }
-
-// model CourseLesson {
-//   id String @id @default(cuid())
-
-//   title        String
-//   description  String
-//   videoId      String
-//   durationInMs Int
-
-//   order Int
-
-//   moduleId String
-//   module   CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-
-//   completedLessons CompletedLesson[]
-//   comments         LessonComment[]
-
-//   @@map("course_lessons")
-// }
-
-// model CompletedLesson {
-//   id String @id @default(cuid())
-
-//   lessonId String
-//   lesson   CourseLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-
-//   courseId String
-//   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
-
-//   userId String
-//   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-
-//   @@map("completed_lessons")
-// }
-
-// model LessonComment {
-//   id String @id @default(cuid())
-
-//   lessonId String
-//   lesson   CourseLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-
-//   userId String
-//   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-//   content String
-
-//   parentId String?
-//   parent   LessonComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-//   replies  LessonComment[] @relation("CommentReplies")
-
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-
-//   @@map("lesson_comments")
-// }
-
-// model CoursePurchase {
-//   id String @id @default(cuid())
-
-//   courseId String
-//   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
-
-//   userId String
-//   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-
-//   @@map("course_purchases")
-// }
-
-// model Notification {
-//   id String @id @default(cuid())
-
-//   userId String
-//   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-//   title   String
-//   content String
-//   link    String?
-
-//   readAt DateTime?
-
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-
-//   @@map("notifications")
-// }
-
 generator client {
-  provider        = "prisma-client-js"
-  output          = "../src/generated/prisma"
-  previewFeatures = ["fullTextSearchPostgres"]
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -201,21 +8,37 @@ datasource db {
 }
 
 model User {
-  id          String  @id @default(cuid())
-  firstName   String
-  lastName    String?
-  email       String  @unique
-  clerkUserId String  @unique
-  imageUrl    String?
-  asaasId     String?
+  id               String            @id @default(cuid())
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  email            String            @unique
+  name             String
+  image            String?
+  role             UserRole          @default(USER)
+  purchases        Purchase[]
+  completedLessons CompletedLesson[]
+}
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum UserRole {
+  USER
+  ADMIN
+}
 
-  purchases CoursePurchase[]
-  notifications Notification[]
-
-  @@map("users")
+model Course {
+  id               String            @id @default(cuid())
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  slug             String            @unique
+  title            String
+  shortDescription String
+  description      String
+  thumbnail        String
+  difficulty       CourseDifficulty?
+  status           CourseStatus      @default(DRAFT)
+  priceInCents     Int               @default(0)
+  tags             CourseTag[]
+  modules          CourseModule[]
+  purchases        Purchase[]
 }
 
 enum CourseStatus {
@@ -224,148 +47,61 @@ enum CourseStatus {
 }
 
 enum CourseDifficulty {
-  EASY
-  MEDIUM
-  HARD
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
 }
 
 model CourseTag {
-  id   String @id @default(cuid())
-  name String @unique
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  course   Course? @relation(fields: [courseId], references: [id])
-  courseId String?
-
-  @@map("course_tags")
-}
-
-model Course {
-  id String @id @default(cuid())
-
-  status CourseStatus @default(DRAFT)
-
-  title            String
-  slug             String           @unique
-  description      String
-  shortDescription String?
-  thumbnail        String
-  price            Float
-  discountPrice    Float?
-  tags             CourseTag[]
-  difficulty       CourseDifficulty @default(EASY)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  modules          CourseModule[]
-  completedLessons CompletedLesson[]
-  purchases        CoursePurchase[]
-
-  @@map("courses")
+  id      String   @id @default(cuid())
+  name    String   @unique
+  courses Course[]
 }
 
 model CourseModule {
-  id String @id @default(cuid())
-
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   title       String
   description String
-
-  courseId String
-  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
-
-  order Int
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  lessons CourseLesson[]
-
-  @@map("course_modules")
+  order       Int
+  courseId    String
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons     Lesson[]
 }
 
-model CourseLesson {
-  id String @id @default(cuid())
-
+model Lesson {
+  id           String            @id @default(cuid())
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
   title        String
   description  String
-  videoId      String
+  order        Int
   durationInMs Int
+  videoId      String
+  moduleId     String
+  module       CourseModule      @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  completedBy  CompletedLesson[]
+}
 
-  order Int
-
-  moduleId String
-  module   CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-
+model Purchase {
+  id        String   @id @default(cuid())
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  userId    String
+  courseId  String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
-  completedLessons CompletedLesson[]
-  comments         LessonComment[]
-
-  @@map("course_lessons")
+  @@unique([userId, courseId])
 }
 
 model CompletedLesson {
-  id String @id @default(cuid())
-
-  userId   String
-  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lessonId String
-  lesson   CourseLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-
+  id        String   @id @default(cuid())
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  userId    String
+  lessonId  String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
   @@unique([userId, lessonId])
-  @@map("completed_lessons")
-}
-
-model CoursePurchase {
-  id String @id @default(cuid())
-
-  userId   String
-  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  courseId String
-  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([userId, courseId])
-  @@map("course_purchases")
-}
-
-model LessonComment {
-  id String @id @default(cuid())
-
-  content String
-
-  userId   String
-  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lessonId String
-  lesson   CourseLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("lesson_comments")
-}
-
-model Notification {
-  id String @id @default(cuid())
-
-  title   String
-  message String
-  read    Boolean @default(false)
-
-  userId String
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("notifications")
 }
