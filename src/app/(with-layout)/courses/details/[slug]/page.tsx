@@ -20,6 +20,8 @@ import { Metadata } from 'next'
 import { prisma } from '@/lib/prisma'
 import { EditorPreview } from '@/components/ui/editor'
 
+// This page depends on DB access. Force runtime rendering so Docker builds
+// (and other environments without DB during `next build`) do not fail.
 export const dynamic = 'force-dynamic'
 
 type CourseDetailsPageProps = {
@@ -49,22 +51,6 @@ export async function generateMetadata({
   }
 }
 
-export async function generateStaticParams() {
-  // Mesmo forçando "force-dynamic", deixamos isso seguro
-  // para impedir que qualquer tentativa de SSG quebre o build.
-  if (!process.env.DATABASE_URL) return []
-
-  try {
-    const courses = await prisma.course.findMany({
-      select: { slug: true },
-    })
-
-    return courses.map((course) => ({ slug: course.slug }))
-  } catch {
-    return []
-  }
-}
-
 export default async function CourseDetailsPage({
   params,
 }: CourseDetailsPageProps) {
@@ -80,7 +66,7 @@ export default async function CourseDetailsPage({
 
   const totalDuration = course.modules.reduce((acc, mod) => {
     return (
-      acc + mod.lessons.reduce((acc2, lesson) => acc2 + lesson.durationInMs, 0)
+      acc + mod.lessons.reduce((acc, lesson) => acc + lesson.durationInMs, 0)
     )
   }, 0)
 
@@ -116,13 +102,11 @@ export default async function CourseDetailsPage({
           <h1 className="text-3xl sm:text-4xl font-bold mt-6">
             {course.title}
           </h1>
-
           {course?.shortDescription && (
             <p className="text-muted-foreground mt-1">
               {course.shortDescription}
             </p>
           )}
-
           <div className="flex items-center flex-wrap gap-2.5 mt-5">
             {course.tags.map((tag) => (
               <Badge key={tag.id}>{tag.name}</Badge>
@@ -203,7 +187,6 @@ export default async function CourseDetailsPage({
                       {mod.lessons.length === 1 ? '' : 's'}
                     </Badge>
                   </div>
-
                   {!!mod.description && (
                     <p className="text-sm sm:text-base text-muted-foreground mt-1">
                       {mod.description}

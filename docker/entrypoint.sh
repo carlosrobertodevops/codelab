@@ -1,17 +1,17 @@
-#!/bin/sh
-set -e
+#!/usr/bin/env sh
+set -eu
 
-# Migrate (depende do DB estar up e DATABASE_URL correto no container)
-if [ "${PRISMA_MIGRATE_DEPLOY:-1}" = "1" ]; then
-  echo "[entrypoint] prisma migrate deploy"
+# The app must start even if optional services (like Clerk) are not configured.
+# DB migrations, however, should run when DATABASE_URL is provided.
+
+if [ -n "${DATABASE_URL:-}" ]; then
+  echo "[entrypoint] Running Prisma migrate deploy"
   npx prisma migrate deploy
+  echo "[entrypoint] Running Prisma generate"
+  npx prisma generate
+else
+  echo "[entrypoint] DATABASE_URL is empty; skipping migrate/generate"
 fi
 
-# Seed opcional
-if [ "${PRISMA_SEED:-0}" = "1" ]; then
-  echo "[entrypoint] prisma db seed"
-  npx prisma db seed
-fi
-
-echo "[entrypoint] starting next"
-exec yarn start
+echo "[entrypoint] Starting Next.js"
+node server.js
