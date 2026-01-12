@@ -17,7 +17,7 @@ import { format } from 'date-fns'
 import { CourseProgress } from '@/components/pages/courses/course-details/course-progress'
 import { BackButton } from '@/components/ui/back-button'
 import { Metadata } from 'next'
-import { prisma } from '@/lib/prisma'
+// import { prisma } from '@/lib/prisma'
 import { EditorPreview } from '@/components/ui/editor'
 
 // This page depends on DB access. Force runtime rendering so Docker builds

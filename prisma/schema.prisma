@@ -7,101 +7,96 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id               String            @id @default(cuid())
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  email            String            @unique
-  name             String
-  image            String?
-  role             UserRole          @default(USER)
-  purchases        Purchase[]
-  completedLessons CompletedLesson[]
-}
-
-enum UserRole {
-  USER
-  ADMIN
-}
-
-model Course {
-  id               String            @id @default(cuid())
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  slug             String            @unique
-  title            String
-  shortDescription String
-  description      String
-  thumbnail        String
-  difficulty       CourseDifficulty?
-  status           CourseStatus      @default(DRAFT)
-  priceInCents     Int               @default(0)
-  tags             CourseTag[]
-  modules          CourseModule[]
-  purchases        Purchase[]
-}
-
-enum CourseStatus {
-  DRAFT
-  PUBLISHED
-}
-
 enum CourseDifficulty {
   BEGINNER
   INTERMEDIATE
   ADVANCED
 }
 
-model CourseTag {
-  id      String   @id @default(cuid())
-  name    String   @unique
-  courses Course[]
+model User {
+  id            String          @id @default(cuid())
+  name          String?
+  email         String?         @unique
+  image         String?
+  clerkUserId   String?         @unique
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  enrollments   Enrollment[]
+  lessonComments LessonComment[]
+}
+
+model Course {
+  id              String          @id @default(cuid())
+  title           String
+  slug            String          @unique
+  description     String
+  shortDescription String?
+  thumbnailUrl    String?
+  difficulty      CourseDifficulty @default(BEGINNER)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  modules         CourseModule[]
+  enrollments     Enrollment[]
+  lessonComments  LessonComment[]
 }
 
 model CourseModule {
-  id          String   @id @default(cuid())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id          String        @id @default(cuid())
   title       String
   description String
   order       Int
   courseId    String
-  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  lessons     Lesson[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  course      Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons     CourseLesson[]
 }
 
-model Lesson {
-  id           String            @id @default(cuid())
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-  title        String
-  description  String
-  order        Int
-  durationInMs Int
-  videoId      String
-  moduleId     String
-  module       CourseModule      @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  completedBy  CompletedLesson[]
+model CourseLesson {
+  id          String       @id @default(cuid())
+  title       String
+  description String
+  order       Int
+  slug        String
+  content     String?
+  videoUrl    String?
+  moduleId    String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  module      CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  comments    LessonComment[]
 }
 
-model Purchase {
+model Enrollment {
   id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
   userId    String
   courseId  String
+  createdAt DateTime @default(now())
+
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@unique([userId, courseId])
 }
 
-model CompletedLesson {
+model LessonComment {
   id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  userId    String
+  content   String
   lessonId  String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  userId    String
+  parentId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@unique([userId, lessonId])
+  lesson    CourseLesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent    LessonComment? @relation("CommentToReplies", fields: [parentId], references: [id])
+  replies   LessonComment[] @relation("CommentToReplies")
+
+  courseId  String?
+  course    Course?        @relation(fields: [courseId], references: [id], onDelete: SetNull)
 }
