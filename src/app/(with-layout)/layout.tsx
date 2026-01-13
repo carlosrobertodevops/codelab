@@ -1,31 +1,34 @@
-"use client";
+'use client'
 
-import { AppSidebar } from "@/components/shared/app-sidebar";
-import { SearchInput } from "@/components/shared/search-input";
-import { Button } from "@/components/ui/button";
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+import { AppSidebar } from '@/components/shared/app-sidebar'
+import { SearchInput } from '@/components/shared/search-input'
+import { Button } from '@/components/ui/button'
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { cn } from "@/lib/utils";
-import { useUser } from "@clerk/nextjs";
-import { LogIn } from "lucide-react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { ReactNode, Suspense } from "react";
+} from '@/components/ui/sidebar'
+import { cn } from '@/lib/utils'
+import { useUser } from '@clerk/nextjs'
+import { LogIn } from 'lucide-react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { ReactNode, Suspense } from 'react'
 
 type LayoutProps = {
-  children: ReactNode;
-};
+  children: ReactNode
+}
 
 export default function Layout({ children }: LayoutProps) {
-  const { user } = useUser();
-  const pathname = usePathname();
+  const { user } = useUser()
+  const pathname = usePathname()
 
-  const isHomePage = pathname === "/";
+  const isHomePage = pathname === '/'
 
-  const isCoursePage = /^\/courses\/(?!details\/).+/.test(pathname);
+  const isCoursePage = /^\/courses\/(?!details\/).+/.test(pathname)
 
   return (
     <SidebarProvider>
@@ -33,8 +36,8 @@ export default function Layout({ children }: LayoutProps) {
       <SidebarInset>
         <header
           className={cn(
-            "flex h-[70px] shrink-0 border-b items-center px-6 justify-between gap-2",
-            !isHomePage && "md:hidden"
+            'flex h-[70px] shrink-0 border-b items-center px-6 justify-between gap-2',
+            !isHomePage && 'md:hidden'
           )}
         >
           <div className="flex-1 flex items-center gap-4">
@@ -59,13 +62,13 @@ export default function Layout({ children }: LayoutProps) {
 
         <div
           className={cn(
-            "flex flex-1 flex-col gap-6 p-6 overflow-auto",
-            isCoursePage && "p-0"
+            'flex flex-1 flex-col gap-6 p-6 overflow-auto',
+            isCoursePage && 'p-0'
           )}
         >
           {children}
         </div>
       </SidebarInset>
     </SidebarProvider>
-  );
+  )
 }

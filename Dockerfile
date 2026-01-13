@@ -26,8 +26,7 @@ RUN corepack enable
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build args (para o build do Next e para o prisma generate)
-# IMPORTANTE: nada fica “hardcoded”; vem do docker-compose build.args
+# Build args (para build do Next e Prisma)
 ARG DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres?schema=public"
 ARG CLOUDFLARE_ACCOUNT_ID=""
 ARG CLOUDFLARE_ACCESS_ID=""
@@ -64,8 +63,9 @@ ENV ASAAS_WEBHOOK_TOKEN=${ASAAS_WEBHOOK_TOKEN}
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+ENV NEXT_DISABLE_ESLINT=1
 
-# Prisma generate (força o schema e evita prisma.config.ts)
+# Prisma generate (força schema e não tenta config)
 RUN npx prisma generate --schema=prisma/schema.prisma
 
 # Build do Next (sem lint)

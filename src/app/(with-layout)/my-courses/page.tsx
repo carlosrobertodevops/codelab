@@ -1,13 +1,16 @@
-import { getPurchasedCoursesWithDetails } from "@/actions/courses";
-import { CourseItem } from "@/components/pages/courses/courses-list/course-item";
-import { Metadata } from "next";
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+import { getPurchasedCoursesWithDetails } from '@/actions/courses'
+import { CourseItem } from '@/components/pages/courses/courses-list/course-item'
+import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: "Meus Cursos",
-};
+  title: 'Meus Cursos',
+}
 
 export default async function PurchasedCoursesPage() {
-  const courses = await getPurchasedCoursesWithDetails();
+  const courses = await getPurchasedCoursesWithDetails()
 
   return (
     <>
@@ -19,5 +22,5 @@ export default async function PurchasedCoursesPage() {
         ))}
       </section>
     </>
-  );
+  )
 }

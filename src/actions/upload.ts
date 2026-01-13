@@ -1,117 +1,102 @@
 "use server";
 
-import { getUser } from "@/lib/auth";
-import { v4 as uuid } from "uuid";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
-  DeleteObjectCommand,
-  PutObjectCommand,
   S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
+import { createId } from "@paralleldrive/cuid2";
 
-/**
- * IMPORTANTE
- * - Não valide credenciais no topo do módulo.
- * - O Next executa imports durante o build e pode avaliar server actions
- *   enquanto coleta dados de páginas.
- * - Se você der throw aqui, o build quebra mesmo sem fazer upload.
- *
- * Portanto: validação e criação do client são "lazy" (somente quando a ação é chamada).
- */
+type UploadFileParams = {
+  file: File;
+  path: string;
+};
 
-function getCloudflareR2Env() {
-  const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const CLOUDFLARE_ACCESS_KEY = process.env.CLOUDFLARE_ACCESS_KEY;
-  const CLOUDFLARE_ACCESS_ID = process.env.CLOUDFLARE_ACCESS_ID;
-  const CLOUDFLARE_R2_BUCKET_NAME = process.env.CLOUDFLARE_R2_BUCKET_NAME;
-  const CLOUDFLARE_FILE_BASE_PATH = process.env.CLOUDFLARE_FILE_BASE_PATH;
+type CloudflareR2Config = {
+  accountId: string;
+  accessId: string;
+  accessKey: string;
+  bucketName: string;
+  fileBasePath: string;
+};
 
-  if (
-    !CLOUDFLARE_ACCOUNT_ID ||
-    !CLOUDFLARE_ACCESS_KEY ||
-    !CLOUDFLARE_ACCESS_ID ||
-    !CLOUDFLARE_R2_BUCKET_NAME ||
-    !CLOUDFLARE_FILE_BASE_PATH
-  ) {
+function getCloudflareR2Config(): CloudflareR2Config {
+  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const accessId = process.env.CLOUDFLARE_ACCESS_ID;
+  const accessKey = process.env.CLOUDFLARE_ACCESS_KEY;
+  const bucketName = process.env.CLOUDFLARE_R2_BUCKET_NAME;
+  const fileBasePath = process.env.CLOUDFLARE_FILE_BASE_PATH;
+
+  if (!accountId || !accessId || !accessKey || !bucketName || !fileBasePath) {
+    // Importante: NÃO validar/lançar erro em nível de módulo (isso quebra o build do Next).
+    // Valida somente quando a action é chamada.
     throw new Error("Cloudflare credentials are not set");
   }
 
-  return {
-    CLOUDFLARE_ACCOUNT_ID,
-    CLOUDFLARE_ACCESS_KEY,
-    CLOUDFLARE_ACCESS_ID,
-    CLOUDFLARE_R2_BUCKET_NAME,
-    CLOUDFLARE_FILE_BASE_PATH,
-  };
+  return { accountId, accessId, accessKey, bucketName, fileBasePath };
 }
 
-function getR2Client() {
-  const env = getCloudflareR2Env();
+let _s3: S3Client | null = null;
 
-  return {
-    env,
-    s3: new S3Client({
+function getS3(): { s3: S3Client; cfg: CloudflareR2Config } {
+  const cfg = getCloudflareR2Config();
+
+  if (!_s3) {
+    _s3 = new S3Client({
       region: "auto",
-      endpoint: `https://${env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      endpoint: `https://${cfg.accountId}.r2.cloudflarestorage.com`,
       credentials: {
-        accessKeyId: env.CLOUDFLARE_ACCESS_ID,
-        secretAccessKey: env.CLOUDFLARE_ACCESS_KEY,
+        accessKeyId: cfg.accessId,
+        secretAccessKey: cfg.accessKey,
       },
-    }),
-  };
+    });
+  }
+
+  return { s3: _s3, cfg };
 }
 
-type CreateSignedUrlParams = {
-  fileType: string;
-  fileName: string;
-  fileSize: number;
-  folder?: string;
-};
+export const uploadFile = async ({ file, path }: UploadFileParams) => {
+  const { s3, cfg } = getS3();
 
-export async function createSignedUploadUrl({
-  fileType,
-  fileName,
-  folder,
-}: CreateSignedUrlParams) {
-  const user = await getUser();
-  if (!user) throw new Error("Unauthorized");
+  const fileName = file.name;
+  const fileId = createId();
+  const size = file.size;
+  const fileType = file.type;
 
-  const { env, s3 } = getR2Client();
+  const fileMaxSize = 1024 * 1024 * 5; // 5MB
+  if (size > fileMaxSize) {
+    throw new Error("File size is too large");
+  }
 
-  const key = `${folder ? `${folder}/` : ""}${uuid()}-${fileName}`;
+  const objectKey = `${path}/${fileId}-${fileName}`;
 
-  const command = new PutObjectCommand({
-    Bucket: env.CLOUDFLARE_R2_BUCKET_NAME,
-    Key: key,
+  const cmd = new PutObjectCommand({
+    Bucket: cfg.bucketName,
+    Key: objectKey,
+    ContentLength: size,
     ContentType: fileType,
+    Body: Buffer.from(await file.arrayBuffer()),
   });
 
-  const signedUrl = await getSignedUrl(s3, command, { expiresIn: 60 * 5 });
+  await s3.send(cmd);
 
-  const publicUrl = `${env.CLOUDFLARE_FILE_BASE_PATH}/${key}`;
-
-  return { signedUrl, key, publicUrl };
-}
-
-type DeleteFileParams = {
-  key: string;
+  const fileUrl = `${cfg.fileBasePath}/${objectKey}`;
+  return { url: fileUrl };
 };
 
-export async function deleteFile({ key }: DeleteFileParams) {
-  const user = await getUser();
-  if (!user) throw new Error("Unauthorized");
+export const deleteFile = async (url: string) => {
+  const { s3, cfg } = getS3();
 
-  const { env, s3 } = getR2Client();
+  const prefix = `${cfg.fileBasePath}/`;
+  const objectKey = url.startsWith(prefix) ? url.slice(prefix.length) : url;
 
-  const command = new DeleteObjectCommand({
-    Bucket: env.CLOUDFLARE_R2_BUCKET_NAME,
-    Key: key,
+  const cmd = new DeleteObjectCommand({
+    Bucket: cfg.bucketName,
+    Key: objectKey,
   });
 
-  await s3.send(command);
-
-  return { ok: true };
-}
+  await s3.send(cmd);
+};
 
 // "use server";
 

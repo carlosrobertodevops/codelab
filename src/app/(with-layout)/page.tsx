@@ -1,25 +1,28 @@
-import { CoursesList } from "@/components/pages/courses/courses-list";
-import { CourseTagsList } from "@/components/pages/courses/tags-list";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Metadata } from "next";
-import { Suspense } from "react";
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+import { CoursesList } from '@/components/pages/courses/courses-list'
+import { CourseTagsList } from '@/components/pages/courses/tags-list'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Metadata } from 'next'
+import { Suspense } from 'react'
 
 type CoursesPageProps = {
   searchParams: Promise<{
-    query: string;
-    tags: string | string[];
-  }>;
-};
+    query: string
+    tags: string | string[]
+  }>
+}
 
 export const metadata: Metadata = {
-  title: "Cursos",
-  description: "Comece hoje mesmo a aprender a programar com nossos cursos.",
-};
+  title: 'Cursos',
+  description: 'Comece hoje mesmo a aprender a programar com nossos cursos.',
+}
 
 export default async function CoursesPage({ searchParams }: CoursesPageProps) {
-  const { query, tags } = await searchParams;
+  const { query, tags } = await searchParams
 
-  const suspenseKey = JSON.stringify({ query, tags });
+  const suspenseKey = JSON.stringify({ query, tags })
 
   return (
     <>
@@ -34,5 +37,5 @@ export default async function CoursesPage({ searchParams }: CoursesPageProps) {
         <CoursesList query={query} tags={tags} />
       </Suspense>
     </>
-  );
+  )
 }

@@ -1,8 +1,11 @@
-import { getAdminUsers } from "@/actions/user";
-import { UsersTable } from "@/components/pages/admin/users-table";
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+import { getAdminUsers } from '@/actions/user'
+import { UsersTable } from '@/components/pages/admin/users-table'
 
 export default async function AdminUsersPage() {
-  const users = await getAdminUsers();
+  const users = await getAdminUsers()
 
   return (
     <>
@@ -10,5 +13,5 @@ export default async function AdminUsersPage() {
 
       <UsersTable users={users} />
     </>
-  );
+  )
 }

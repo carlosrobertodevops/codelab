@@ -1,3 +1,4 @@
+
 import { getNewUsersStats, getPurchasedCoursesStats } from "@/actions/stats";
 import { StatsCharts } from "@/components/pages/admin/stats-charts";
 
