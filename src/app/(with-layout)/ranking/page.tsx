@@ -1,38 +1,31 @@
-import { getRanking } from '@/actions/ranking'
-import { RankingList } from '@/components/pages/ranking/ranking-list'
-import { RankingProfile } from '@/components/pages/ranking/ranking-profile'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
-import { getUser } from '@/lib/auth'
-import { Medal } from 'lucide-react'
+import { getRanking } from "@/actions/ranking";
+import { RankingTable } from "@/components/pages/ranking/ranking-table";
+import { Crown } from "lucide-react";
+import { Metadata } from "next";
 
-// Depends on DB access, so render at runtime (avoids `next build` failures in Docker).
-export const dynamic = 'force-dynamic'
+export const revalidate = 3600; // Revalidate at most every hour
+
+export const metadata: Metadata = {
+  title: "Ranking",
+};
 
 export default async function RankingPage() {
-  await getUser()
-
-  const ranking = await getRanking()
+  const ranking = await getRanking();
 
   return (
-    <section className="grid grid-cols-1 lg:grid-cols-[1fr_450px] gap-10 h-full">
-      <div>
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-          <Medal className="text-yellow-500" size={24} />
+    <>
+      <div className="flex flex-col items-center text-center">
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <Crown className="text-primary" />
           Ranking
-        </h2>
-        <p className="text-muted-foreground mt-1">
-          Veja os melhores alunos e suas pontuações
+          <Crown className="text-primary" />
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Esta tabela atualiza de hora em hora.
         </p>
-
-        <Separator className="my-6" />
-
-        <ScrollArea className="h-[calc(100vh-250px)]">
-          <RankingList ranking={ranking} />
-        </ScrollArea>
       </div>
 
-      <RankingProfile />
-    </section>
-  )
+      <RankingTable ranking={ranking} />
+    </>
+  );
 }

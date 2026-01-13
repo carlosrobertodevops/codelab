@@ -1,70 +1,86 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { headers } from "next/headers";
 
-export async function POST(req: Request) {
+export const POST = async (req: Request) => {
   try {
-    const payload = await req.json();
+    const headersList = await headers();
 
-    const event = payload?.event;
-    const paymentId = payload?.payment?.id;
+    const token = headersList.get("asaas-access-token");
 
-    if (!event || !paymentId) {
-      return NextResponse.json({ ok: true });
+    if (token !== process.env.ASAAS_WEBHOOK_TOKEN) {
+      return new Response("Unauthorized", { status: 401 });
     }
 
-    // Localiza enrollment pendente pelo paymentId (existe no schema Enrollment.paymentId)
-    const enrollment = await prisma.enrollment.findFirst({
-      where: { paymentId },
+    const body = await req.json();
+
+    const { event, payment } = body;
+
+    if (!event || !payment) return new Response("Bad Request", { status: 400 });
+
+    const customerId = payment.customer;
+    const courseId = payment.externalReference;
+
+    const user = await prisma.user.findFirst({
+      where: {
+        asaasId: customerId,
+      },
     });
 
-    if (!enrollment) {
-      return NextResponse.json({ ok: true });
-    }
+    if (!user) return new Response("Customer not found", { status: 404 });
 
-    // O courseId está em enrollment.courseId e userId em enrollment.userId
-    const { userId, courseId } = enrollment;
+    switch (event) {
+      case "PAYMENT_RECEIVED":
+      case "PAYMENT_CONFIRMED":
+        if (event === "PAYMENT_RECEIVED" && payment.billingType !== "PIX") {
+          return new Response("Webhook received", { status: 200 });
+        }
 
-    if (event === "PAYMENT_RECEIVED" || event === "PAYMENT_CONFIRMED") {
-      await prisma.enrollment.update({
-        where: {
-          userId_courseId: { userId, courseId },
-        },
-        data: {
-          status: "PAID",
-        },
-      });
-
-      return NextResponse.json({ ok: true });
-    }
-
-    if (
-      event === "PAYMENT_REFUNDED" ||
-      event === "PAYMENT_CHARGEBACK_REQUESTED" ||
-      event === "PAYMENT_CHARGEBACK_DISPUTE" ||
-      event === "PAYMENT_CHARGEBACK_REVERSED"
-    ) {
-      // Remove matrícula e progresso do curso em caso de estorno/chargeback
-      await prisma.enrollment.delete({
-        where: {
-          userId_courseId: { userId, courseId },
-        },
-      });
-
-      await prisma.completedLesson.deleteMany({
-        where: {
-          userId,
-          lesson: {
+        const userAlreadyHasCourse = await prisma.coursePurchase.findFirst({
+          where: {
+            userId: user.id,
             courseId,
           },
-        },
-      });
+        });
 
-      return NextResponse.json({ ok: true });
+        if (!userAlreadyHasCourse) {
+          await prisma.coursePurchase.create({
+            data: {
+              courseId,
+              userId: user.id,
+            },
+          });
+        }
+
+        return new Response("Webhook received", { status: 200 });
+      case "PAYMENT_REFUNDED":
+        const userHasCourse = await prisma.coursePurchase.findFirst({
+          where: {
+            userId: user.id,
+            courseId,
+          },
+        });
+
+        if (userHasCourse) {
+          await prisma.coursePurchase.delete({
+            where: {
+              id: userHasCourse.id,
+            },
+          });
+          await prisma.completedLesson.deleteMany({
+            where: {
+              userId: user.id,
+              courseId,
+            },
+          });
+        }
+
+        return new Response("Webhook received", { status: 200 });
+      default:
+        return new Response("Unhandled event", { status: 200 });
     }
+  } catch (error) {
+    console.error(error);
 
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error("[asaas-webhook] error:", err);
-    return NextResponse.json({ ok: true });
+    return new Response("Internal Server Error", { status: 500 });
   }
-}
+};

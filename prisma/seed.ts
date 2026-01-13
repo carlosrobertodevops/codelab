@@ -1,120 +1,51 @@
-import "dotenv/config";
+import { PrismaClient } from "../src/generated/prisma";
+import sampleCourses from "./sample-courses.json";
 
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient, type CourseDifficulty } from "@prisma/client";
-import { Pool } from "pg";
-
-// ts-node (CommonJS) + JSON via require para evitar resolveJsonModule
- 
-const sampleCourses = require("./sample-courses.json") as SampleCourse[];
-
-type SampleLesson = {
-  title: string;
-  durationInMs: number;
-  order: number;
-  videoId: string;
-  thumbnail: string;
-  description: string;
-};
-
-type SampleModule = {
-  title: string;
-  order: number;
-  lessons: SampleLesson[];
-};
-
-type SampleCourse = {
-  title: string;
-  slug: string;
-  shortDescription?: string;
-  description: string;
-  thumbnail: string;
-  price: number;
-  discountPrice?: number | null;
-  tags?: string[];
-  modules: SampleModule[];
-  difficulty?: CourseDifficulty;
-};
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function main() {
-  for (const course of sampleCourses) {
-    const tags = course.tags ?? [];
+  for (const courseData of sampleCourses) {
+    const { tags, modules, ...course } = courseData;
 
-    // upsert tags
-    for (const tagName of tags) {
-      await prisma.courseTag.upsert({
-        where: { name: tagName },
-        create: { name: tagName },
-        update: {},
-      });
-    }
-
-    await prisma.course.upsert({
-      where: { slug: course.slug },
-      create: {
-        title: course.title,
-        slug: course.slug,
-        shortDescription: course.shortDescription ?? "",
-        description: course.description ?? "",
-        thumbnail: course.thumbnail,
-        price: course.price,
-        discountPrice: course.discountPrice ?? undefined,
-        difficulty: course.difficulty ?? undefined,
+    const createdCourse = await prisma.course.create({
+      data: {
+        ...course,
+        status: "PUBLISHED",
         tags: {
-          connect: tags.map((name) => ({ name })),
+          connectOrCreate: tags.map((name) => ({
+            where: { name },
+            create: { name },
+          })),
         },
         modules: {
-          create: course.modules
-            .sort((a, b) => a.order - b.order)
-            .map((m) => ({
-              title: m.title,
-              description: "",
-              order: m.order,
-              lessons: {
-                create: m.lessons
-                  .sort((a, b) => a.order - b.order)
-                  .map((l) => ({
-                    title: l.title,
-                    description: l.description ?? "",
-                    thumbnail: l.thumbnail,
-                    videoId: l.videoId,
-                    durationInMs: l.durationInMs,
-                    order: l.order,
-                  })),
-              },
-            })),
-        },
-      },
-      update: {
-        title: course.title,
-        shortDescription: course.shortDescription ?? "",
-        description: course.description ?? "",
-        thumbnail: course.thumbnail,
-        price: course.price,
-        discountPrice: course.discountPrice ?? undefined,
-        difficulty: course.difficulty ?? undefined,
-        tags: {
-          set: [],
-          connect: tags.map((name) => ({ name })),
+          create: modules.map((courseModule, index) => ({
+            title: courseModule.title,
+            description: courseModule.description,
+            order: index + 1,
+            lessons: {
+              create: courseModule.lessons.map((lesson, lessonIndex) => ({
+                title: lesson.title,
+                description: lesson.description,
+                videoId: lesson.videoId,
+                durationInMs: lesson.durationInMs,
+                order: lessonIndex + 1,
+              })),
+            },
+          })),
         },
       },
     });
+
+    console.log(`Curso criado: ${createdCourse.title}`);
   }
 }
 
 main()
   .then(async () => {
     await prisma.$disconnect();
-    await pool.end();
   })
-  .catch(async (e) => {
-     
-    console.error(e);
+  .catch(async (error) => {
+    console.error(error);
     await prisma.$disconnect();
-    await pool.end();
     process.exit(1);
   });

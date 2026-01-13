@@ -1,9 +1,19 @@
-
-
 "use server";
 
 import { prisma } from "@/lib/prisma";
 import { getUser } from "@/lib/auth";
+import { Prisma } from "@/generated/prisma";
+
+type CommentWithRepliesCount = Prisma.LessonCommentGetPayload<{
+  include: {
+    user: true;
+    _count: {
+      select: {
+        replies: true;
+      };
+    };
+  };
+}>;
 
 type CreateCommentParams = {
   lessonId: string;
@@ -13,7 +23,10 @@ type CreateCommentParams = {
 
 export async function getLessonComments(lessonId: string) {
   const comments = await prisma.lessonComment.findMany({
-    where: { lessonId, parentId: null },
+    where: {
+      lessonId,
+      parentId: null,
+    },
     include: {
       user: true,
       replies: {
@@ -22,11 +35,19 @@ export async function getLessonComments(lessonId: string) {
         },
         orderBy: { createdAt: "asc" },
       },
+      _count: {
+        select: {
+          replies: true,
+        },
+      },
     },
     orderBy: { createdAt: "asc" },
   });
 
-  return comments;
+  return comments.map((comment: CommentWithRepliesCount) => ({
+    ...comment,
+    repliesCount: comment._count.replies,
+  }));
 }
 
 export async function createLessonComment(params: CreateCommentParams) {
@@ -42,23 +63,20 @@ export async function createLessonComment(params: CreateCommentParams) {
 
   if (!lesson) throw new Error("Lesson not found");
 
-  // Garante que o usuário está matriculado no curso da lição
-  const userId = user.id;
-  const course = lesson.course;
+  const userId = user.userId;
 
-  // No schema, a “compra” é representada por Enrollment (chave composta userId+courseId).
   const userHasCourse = await prisma.enrollment.findUnique({
     where: {
       userId_courseId: {
         userId,
-        courseId: course.id,
+        courseId: lesson.course.id,
       },
     },
   });
 
   if (!userHasCourse) throw new Error("Forbidden");
 
-  const comment = await prisma.lessonComment.create({
+  return prisma.lessonComment.create({
     data: {
       content,
       lessonId,
@@ -66,8 +84,6 @@ export async function createLessonComment(params: CreateCommentParams) {
       parentId: parentId ?? null,
     },
   });
-
-  return comment;
 }
 
 export async function deleteLessonComment(commentId: string) {
@@ -76,14 +92,17 @@ export async function deleteLessonComment(commentId: string) {
 
   const comment = await prisma.lessonComment.findUnique({
     where: { id: commentId },
-    include: { lesson: { include: { course: true } } },
+    include: {
+      lesson: {
+        include: { course: true },
+      },
+    },
   });
 
   if (!comment) throw new Error("Comment not found");
 
-  const userId = user.id;
+  const userId = user.userId;
 
-  // Garante que o usuário está matriculado no curso da lição
   const userHasCourse = await prisma.enrollment.findUnique({
     where: {
       userId_courseId: {
@@ -93,11 +112,32 @@ export async function deleteLessonComment(commentId: string) {
     },
   });
 
-  if (!userHasCourse) throw new Error("Forbidden");
+  if (!userHasCourse || comment.userId !== userId) {
+    throw new Error("Forbidden");
+  }
 
-  if (comment.userId !== userId) throw new Error("Forbidden");
-
-  await prisma.lessonComment.delete({ where: { id: commentId } });
+  await prisma.lessonComment.delete({
+    where: { id: commentId },
+  });
 
   return { ok: true };
+}
+
+/**
+ * ✅ ALIAS EXIGIDO PELO FRONT
+ */
+export const deleteComment = deleteLessonComment;
+
+export async function getAdminComments() {
+  return prisma.lessonComment.findMany({
+    include: {
+      user: true,
+      lesson: {
+        include: {
+          course: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
 }

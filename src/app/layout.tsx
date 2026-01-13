@@ -1,51 +1,51 @@
-import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
-import './globals.css'
-import { cn } from '@/lib/utils'
-import { ClerkProvider } from '@clerk/nextjs'
-import { ptBR } from '@clerk/localizations'
+import type { Metadata } from "next";
+import { Nunito } from "next/font/google";
+import { cn } from "@/lib/utils";
+import { ClerkProvider } from "@clerk/nextjs";
+import { ptBR } from "@clerk/localizations";
+import { ClientProviders } from "@/components/shared/client-providers";
+import { setDefaultOptions } from "date-fns";
+import { ptBR as dateFnsPtBR } from "date-fns/locale";
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-})
+setDefaultOptions({ locale: dateFnsPtBR });
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-})
+import "@/styles/globals.css";
+import "@/styles/clerk.css";
+
+const nunito = Nunito({
+  variable: "--font-sans",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: 'CodeLab',
-  description: 'CodeLab - plataforma de cursos',
-}
+  title: {
+    template: "%s | CodeLab",
+    default: "CodeLab",
+  },
+  icons: {
+    icon: "/favicon.svg",
+  },
+};
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode
+  children: React.ReactNode;
 }>) {
-  const hasClerkKey = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY)
-
-  const AppShell = (
-    <html lang="pt-BR">
-      <body
-        className={cn(
-          `${geistSans.variable} ${geistMono.variable} antialiased`,
-          'min-h-screen'
-        )}
-      >
-        {children}
-      </body>
-    </html>
-  )
-
-  // Permite build/rodar sem Clerk configurado.
-  if (!hasClerkKey) return AppShell
-
   return (
-    <ClerkProvider localization={ptBR} afterSignOutUrl="/">
-      {AppShell}
+    <ClerkProvider
+      appearance={{
+        variables: {
+          colorPrimary: "hsl(160 100% 37%)",
+        },
+      }}
+      localization={ptBR}
+    >
+      <html lang="pt-BR" suppressHydrationWarning>
+        <body className={cn(nunito.variable, "antialiased font-sans dark")}>
+          <ClientProviders>{children}</ClientProviders>
+        </body>
+      </html>
     </ClerkProvider>
-  )
+  );
 }

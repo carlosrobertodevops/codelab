@@ -1,18 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
   images: {
     remotePatterns: [
       {
-        // hostname: "pub-8fa7f812290f42b390f442c85bf3757a.r2.dev",
-        protocol: "https",
-        hostname: "images.unsplash.com",
+        hostname: "pub-8fa7f812290f42b390f442c85bf3757a.r2.dev",
       },
-      { protocol: "https", hostname: "img.clerk.com" },
-      { protocol: "https", hostname: "images.clerk.dev" },
-      { protocol: "https", hostname: "utfs.io" },
-      { protocol: "https", hostname: "placehold.co" },
     ],
   },
   turbopack: {

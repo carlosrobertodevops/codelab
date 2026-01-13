@@ -1,69 +1,113 @@
 name: codelab
-
 services:
   db:
     image: postgres:16-alpine
-    container_name: codelab_db
+    container_name: codelab-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
+      POSTGRES_DB: codelab
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     ports:
       - '5432:5432'
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres -d postgres']
-      interval: 5s
-      timeout: 3s
-      retries: 30
-    networks:
-      - codelab_net
 
   pgadmin:
     image: dpage/pgadmin4:8
-    container_name: codelab_pgadmin
+    container_name: codelab-pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@local.dev
-      PGADMIN_DEFAULT_PASSWORD: admin123
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
     ports:
       - '5050:80'
     depends_on:
-      db:
-        condition: service_healthy
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    networks:
-      - codelab_net
+      - db
 
   app:
-    container_name: codelab_app
-    restart: unless-stopped
+    container_name: codelab-app
     build:
       context: .
       dockerfile: Dockerfile
-    environment:
-      NODE_ENV: production
-      PORT: '3000'
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres?schema=public
-
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
-      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+    restart: unless-stopped
     ports:
       - '3000:3000'
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/codelab
+      NODE_ENV: production
     depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - codelab_net
-
-networks:
-  codelab_net:
-    driver: bridge
+      - db
 
 volumes:
-  postgres_data:
-  pgadmin_data:
+  pgdata:
+
+# name: codelab
+
+# services:
+#   db:
+#     image: postgres:16-alpine
+#     container_name: codelab_db
+#     restart: unless-stopped
+#     environment:
+#       POSTGRES_USER: postgres
+#       POSTGRES_PASSWORD: postgres
+#       POSTGRES_DB: postgres
+#     ports:
+#       - '5432:5432'
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#     healthcheck:
+#       test: ['CMD-SHELL', 'pg_isready -U postgres -d postgres']
+#       interval: 5s
+#       timeout: 3s
+#       retries: 30
+#     networks:
+#       - codelab_net
+
+#   pgadmin:
+#     image: dpage/pgadmin4:8
+#     container_name: codelab_pgadmin
+#     restart: unless-stopped
+#     environment:
+#       PGADMIN_DEFAULT_EMAIL: admin@local.dev
+#       PGADMIN_DEFAULT_PASSWORD: admin123
+#       PGADMIN_CONFIG_SERVER_MODE: 'False'
+#     ports:
+#       - '5050:80'
+#     depends_on:
+#       db:
+#         condition: service_healthy
+#     volumes:
+#       - pgadmin_data:/var/lib/pgadmin
+#     networks:
+#       - codelab_net
+
+#   app:
+#     container_name: codelab_app
+#     restart: unless-stopped
+#     build:
+#       context: .
+#       dockerfile: Dockerfile
+#     environment:
+#       NODE_ENV: production
+#       PORT: '3000'
+#       DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres?schema=public
+
+#       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+#       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+#     ports:
+#       - '3000:3000'
+#     depends_on:
+#       db:
+#         condition: service_healthy
+#     networks:
+#       - codelab_net
+
+# networks:
+#   codelab_net:
+#     driver: bridge
+
+# volumes:
+#   postgres_data:
+#   pgadmin_data:

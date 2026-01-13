@@ -1,35 +1,15 @@
-import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
+import { PrismaClient } from "@/generated/prisma";
 
-declare global {
-   
-  var __prisma: PrismaClient | undefined;
-   
-  var __prismaPool: Pool | undefined;
-}
+const prismaClientSingleton = () => {
+  return new PrismaClient();
+};
 
-/**
- * Prisma 7 usa Adapter para conexão direta (ex.: Postgres via `pg`).
- * Isso evita o erro pedindo `adapter` ou `accelerateUrl`.
- */
-function getPool() {
-  if (!global.__prismaPool) {
-    global.__prismaPool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-    });
-  }
-  return global.__prismaPool;
-}
+declare const globalThis: {
+  prismaGlobal: ReturnType<typeof prismaClientSingleton>;
+} & typeof global;
 
-function createPrismaClient() {
-  const pool = getPool();
-  const adapter = new PrismaPg(pool);
-  return new PrismaClient({ adapter });
-}
+const prisma = globalThis.prismaGlobal ?? prismaClientSingleton();
 
-export const prisma = global.__prisma ?? createPrismaClient();
+export { prisma };
 
-if (process.env.NODE_ENV !== "production") {
-  global.__prisma = prisma;
-}
+if (process.env.NODE_ENV !== "production") globalThis.prismaGlobal = prisma;

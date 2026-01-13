@@ -1,55 +1,111 @@
-
-
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getUser } from "@/lib/auth";
+import { getUser } from "./user";
 
-export async function getCourseProgress(courseId: string) {
-  const user = await getUser();
-  if (!user) throw new Error("Unauthorized");
+type CompleteLessonPayload = {
+  courseSlug: string;
+  lessonId: string;
+};
 
-  const userId = user.userId;
+export const markLessonAsCompleted = async ({
+  lessonId,
+  courseSlug,
+}: CompleteLessonPayload) => {
+  const { userId } = await getUser();
 
   const course = await prisma.course.findUnique({
-    where: { id: courseId },
-    include: { lessons: true },
+    where: {
+      slug: courseSlug,
+    },
   });
 
   if (!course) throw new Error("Course not found");
 
-  const userHasCourse = await prisma.enrollment.findUnique({
+  const userHasCourse = await prisma.coursePurchase.findFirst({
     where: {
-      userId_courseId: {
-        userId,
-        courseId: course.id,
+      courseId: course.id,
+      userId,
+    },
+  });
+
+  if (!userHasCourse) throw new Error("Você não possui acesso a este curso");
+
+  const isAlreadyCompleted = await prisma.completedLesson.findFirst({
+    where: {
+      lessonId,
+      userId,
+    },
+  });
+
+  if (isAlreadyCompleted) return isAlreadyCompleted;
+
+  const completedLesson = await prisma.completedLesson.create({
+    data: {
+      lessonId,
+      userId,
+      courseId: course.id,
+    },
+  });
+
+  return completedLesson;
+};
+
+export const unmarkLessonAsCompleted = async (lessonId: string) => {
+  const { userId } = await getUser();
+
+  const completedLesson = await prisma.completedLesson.findFirst({
+    where: {
+      lessonId,
+      userId,
+    },
+  });
+
+  if (!completedLesson) return;
+
+  await prisma.completedLesson.delete({
+    where: {
+      id: completedLesson.id,
+    },
+  });
+};
+
+export const getCourseProgress = async (courseSlug: string) => {
+  const { userId } = await getUser();
+
+  const course = await prisma.course.findUnique({
+    where: {
+      slug: courseSlug,
+    },
+    include: {
+      modules: {
+        select: {
+          lessons: {
+            select: {
+              id: true,
+            },
+          },
+        },
       },
     },
   });
 
-  if (!userHasCourse) {
-    return {
-      completedLessons: [],
-      progressPercentage: 0,
-    };
-  }
+  if (!course) throw new Error("Course not found");
 
   const completedLessons = await prisma.completedLesson.findMany({
     where: {
       userId,
-      lesson: {
-        courseId,
-      },
+      courseId: course.id,
     },
   });
 
-  const progressPercentage =
-    course.lessons.length === 0
-      ? 0
-      : Math.round((completedLessons.length / course.lessons.length) * 100);
+  const totalLessons = course.modules.flatMap((mod) => mod.lessons).length;
+  const completedLessonsCount = completedLessons.length;
+
+  const progress = Math.round((completedLessonsCount / totalLessons) * 100);
 
   return {
     completedLessons,
-    progressPercentage,
+    progress,
   };
-}
+};
