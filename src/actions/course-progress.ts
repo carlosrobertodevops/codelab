@@ -1,3 +1,5 @@
+
+
 "use server";
 
 import { prisma } from "@/lib/prisma";
@@ -7,7 +9,7 @@ export async function getCourseProgress(courseId: string) {
   const user = await getUser();
   if (!user) throw new Error("Unauthorized");
 
-  const userId = user.id;
+  const userId = user.userId;
 
   const course = await prisma.course.findUnique({
     where: { id: courseId },

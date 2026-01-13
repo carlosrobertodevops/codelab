@@ -21,7 +21,7 @@ export async function getPurchasedCourses() {
   const user = await getUser();
   if (!user) return [];
 
-  const userId = user.id;
+  const userId = user.userId;
 
   const purchasedCourses = await prisma.enrollment.findMany({
     where: {
