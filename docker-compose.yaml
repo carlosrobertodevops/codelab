@@ -6,19 +6,15 @@ services:
     container_name: codelab_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
     ports:
       - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test:
-        [
-          'CMD-SHELL',
-          'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}',
-        ]
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d postgres']
       interval: 5s
       timeout: 3s
       retries: 30
@@ -30,8 +26,8 @@ services:
     container_name: codelab_pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@local.dev}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin123}
+      PGADMIN_DEFAULT_EMAIL: admin@local.dev
+      PGADMIN_DEFAULT_PASSWORD: admin123
       PGADMIN_CONFIG_SERVER_MODE: 'False'
     ports:
       - '5050:80'
@@ -51,9 +47,8 @@ services:
       dockerfile: Dockerfile
     environment:
       NODE_ENV: production
-      NEXT_TELEMETRY_DISABLED: '1'
       PORT: '3000'
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/postgres?schema=public}
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres?schema=public
 
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
@@ -62,12 +57,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    command: >
-      sh -c "
-      npx prisma migrate deploy &&
-      npx prisma generate &&
-      yarn start
-      "
     networks:
       - codelab_net
 
