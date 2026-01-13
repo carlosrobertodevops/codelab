@@ -1,37 +1,35 @@
-import { PrismaClient } from "@/generated/prisma";
+import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
 declare global {
-  // eslint-disable-next-line no-var
-  var __codelab_prisma: PrismaClient | undefined;
-  // eslint-disable-next-line no-var
-  var __codelab_prisma_pool: Pool | undefined;
+   
+  var __prisma: PrismaClient | undefined;
+   
+  var __prismaPool: Pool | undefined;
+}
+
+/**
+ * Prisma 7 usa Adapter para conexão direta (ex.: Postgres via `pg`).
+ * Isso evita o erro pedindo `adapter` ou `accelerateUrl`.
+ */
+function getPool() {
+  if (!global.__prismaPool) {
+    global.__prismaPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+    });
+  }
+  return global.__prismaPool;
 }
 
 function createPrismaClient() {
-  const connectionString = process.env.DATABASE_URL;
-
-  if (!connectionString) {
-    throw new Error("DATABASE_URL não está definido.");
-  }
-
-  const pool =
-    global.__codelab_prisma_pool ??
-    new Pool({
-      connectionString,
-    });
-
-  if (process.env.NODE_ENV !== "production") {
-    global.__codelab_prisma_pool = pool;
-  }
-
+  const pool = getPool();
   const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }
 
-export const prisma = global.__codelab_prisma ?? createPrismaClient();
+export const prisma = global.__prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") {
-  global.__codelab_prisma = prisma;
+  global.__prisma = prisma;
 }

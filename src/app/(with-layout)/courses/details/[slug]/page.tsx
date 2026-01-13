@@ -16,12 +16,10 @@ import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
 import { CourseProgress } from '@/components/pages/courses/course-details/course-progress'
 import { BackButton } from '@/components/ui/back-button'
-import { Metadata } from 'next'
-// import { prisma } from '@/lib/prisma'
+import type { Metadata } from 'next'
 import { EditorPreview } from '@/components/ui/editor'
 
-// This page depends on DB access. Force runtime rendering so Docker builds
-// (and other environments without DB during `next build`) do not fail.
+// Depends on DB access (via actions), so render at runtime (avoids build failures without DB).
 export const dynamic = 'force-dynamic'
 
 type CourseDetailsPageProps = {
@@ -44,7 +42,7 @@ export async function generateMetadata({
 
   return {
     title: course.title,
-    description: course.shortDescription,
+    description: course.shortDescription ?? undefined,
     openGraph: {
       images: [course.thumbnail],
     },
@@ -60,27 +58,20 @@ export default async function CourseDetailsPage({
 
   if (!course) return notFound()
 
-  const totalLessons = course.modules.reduce((acc, mod) => {
-    return acc + mod.lessons.length
-  }, 0)
+  const totalLessons = course.modules.reduce(
+    (acc, mod) => acc + mod.lessons.length,
+    0
+  )
 
   const totalDuration = course.modules.reduce((acc, mod) => {
     return (
-      acc + mod.lessons.reduce((acc, lesson) => acc + lesson.durationInMs, 0)
+      acc + mod.lessons.reduce((acc2, lesson) => acc2 + lesson.durationInMs, 0)
     )
   }, 0)
 
   const details = [
-    {
-      icon: Clock,
-      label: 'Duração',
-      value: formatDuration(totalDuration),
-    },
-    {
-      icon: Camera,
-      label: 'Aulas',
-      value: `${totalLessons} aulas`,
-    },
+    { icon: Clock, label: 'Duração', value: formatDuration(totalDuration) },
+    { icon: Camera, label: 'Aulas', value: `${totalLessons} aulas` },
     {
       icon: ChartColumnIncreasing,
       label: 'Dificuldade',
@@ -102,11 +93,13 @@ export default async function CourseDetailsPage({
           <h1 className="text-3xl sm:text-4xl font-bold mt-6">
             {course.title}
           </h1>
-          {course?.shortDescription && (
+
+          {!!course.shortDescription && (
             <p className="text-muted-foreground mt-1">
               {course.shortDescription}
             </p>
           )}
+
           <div className="flex items-center flex-wrap gap-2.5 mt-5">
             {course.tags.map((tag) => (
               <Badge key={tag.id}>{tag.name}</Badge>

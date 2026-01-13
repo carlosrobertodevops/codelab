@@ -14,7 +14,8 @@
     "prisma:seed": "prisma db seed"
   },
   "prisma": {
-    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts",
+    "schema": "prisma/schema.prisma"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.802.0",
@@ -54,9 +55,11 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "dequal": "^2.0.3",
+    "dotenv": "^16.0.0",
     "lucide-react": "^0.507.0",
     "next": "15.3.1",
     "next-themes": "^0.4.6",
+    "pg": "^8.0.0",
     "pretty-bytes": "^7.0.0",
     "query-string": "^9.1.1",
     "react": "^19.0.0",
@@ -72,9 +75,7 @@
     "tailwind-merge": "^3.2.0",
     "ts-node": "^10.9.2",
     "zod": "^3.24.3",
-    "zustand": "^5.0.3",
-    "dotenv": "^16.0.0",
-    "pg": "^8.0.0"
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

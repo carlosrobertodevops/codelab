@@ -1,102 +1,105 @@
-import fs from "node:fs";
-import path from "node:path";
+import "dotenv/config";
 
-import { PrismaClient, CourseDifficulty, CourseStatus } from "@/generated/prisma";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient, type CourseDifficulty } from "@prisma/client";
+import { Pool } from "pg";
+
+// ts-node (CommonJS) + JSON via require para evitar resolveJsonModule
+ 
+const sampleCourses = require("./sample-courses.json") as SampleCourse[];
 
 type SampleLesson = {
   title: string;
-  description?: string | null;
-  durationInMs?: number;
-  videoUrl?: string | null;
+  durationInMs: number;
+  order: number;
+  videoId: string;
+  thumbnail: string;
+  description: string;
 };
 
-type SampleCourseModule = {
+type SampleModule = {
   title: string;
-  description?: string | null;
+  order: number;
   lessons: SampleLesson[];
 };
 
 type SampleCourse = {
   title: string;
-  shortDescription?: string | null;
-  description?: string | null;
+  slug: string;
+  shortDescription?: string;
+  description: string;
   thumbnail: string;
-  difficulty?: string;
-  status?: string;
+  price: number;
+  discountPrice?: number | null;
   tags?: string[];
-  modules: SampleCourseModule[];
+  modules: SampleModule[];
+  difficulty?: CourseDifficulty;
 };
 
-function loadSampleCourses(): SampleCourse[] {
-  const filePath = path.join(__dirname, "sample-courses.json");
-  const raw = fs.readFileSync(filePath, "utf-8");
-  return JSON.parse(raw) as SampleCourse[];
-}
-
-const prisma = new PrismaClient();
-
-function normalizeDifficulty(input?: string): CourseDifficulty {
-  const v = (input ?? "").toLowerCase().trim();
-  if (v === "beginner") return CourseDifficulty.beginner;
-  if (v === "intermediate") return CourseDifficulty.intermediate;
-  if (v === "advanced") return CourseDifficulty.advanced;
-  return CourseDifficulty.beginner;
-}
-
-function normalizeStatus(input?: string): CourseStatus {
-  const v = (input ?? "").toLowerCase().trim();
-  if (v === "draft") return CourseStatus.draft;
-  if (v === "published") return CourseStatus.published;
-  if (v === "archived") return CourseStatus.archived;
-  return CourseStatus.draft;
-}
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const courses = loadSampleCourses();
-
-  for (const course of courses) {
+  for (const course of sampleCourses) {
     const tags = course.tags ?? [];
-    const modules = course.modules ?? [];
+
+    // upsert tags
+    for (const tagName of tags) {
+      await prisma.courseTag.upsert({
+        where: { name: tagName },
+        create: { name: tagName },
+        update: {},
+      });
+    }
 
     await prisma.course.upsert({
-      where: { slug: course.title.toLowerCase().replace(/\s+/g, "-") },
+      where: { slug: course.slug },
+      create: {
+        title: course.title,
+        slug: course.slug,
+        shortDescription: course.shortDescription ?? "",
+        description: course.description ?? "",
+        thumbnail: course.thumbnail,
+        price: course.price,
+        discountPrice: course.discountPrice ?? undefined,
+        difficulty: course.difficulty ?? undefined,
+        tags: {
+          connect: tags.map((name) => ({ name })),
+        },
+        modules: {
+          create: course.modules
+            .sort((a, b) => a.order - b.order)
+            .map((m) => ({
+              title: m.title,
+              description: "",
+              order: m.order,
+              lessons: {
+                create: m.lessons
+                  .sort((a, b) => a.order - b.order)
+                  .map((l) => ({
+                    title: l.title,
+                    description: l.description ?? "",
+                    thumbnail: l.thumbnail,
+                    videoId: l.videoId,
+                    durationInMs: l.durationInMs,
+                    order: l.order,
+                  })),
+              },
+            })),
+        },
+      },
       update: {
         title: course.title,
         shortDescription: course.shortDescription ?? "",
         description: course.description ?? "",
         thumbnail: course.thumbnail,
-        difficulty: normalizeDifficulty(course.difficulty),
-        status: normalizeStatus(course.status),
-      },
-      create: {
-        title: course.title,
-        slug: course.title.toLowerCase().replace(/\s+/g, "-"),
-        shortDescription: course.shortDescription ?? "",
-        description: course.description ?? "",
-        thumbnail: course.thumbnail,
-        difficulty: normalizeDifficulty(course.difficulty),
-        status: normalizeStatus(course.status),
+        price: course.price,
+        discountPrice: course.discountPrice ?? undefined,
+        difficulty: course.difficulty ?? undefined,
         tags: {
-          connectOrCreate: tags.map((name: string) => ({
-            where: { name },
-            create: { name },
-          })),
-        },
-        modules: {
-          create: modules.map((courseModule: SampleCourseModule, index: number) => ({
-            title: courseModule.title,
-            description: courseModule.description ?? "",
-            order: index,
-            lessons: {
-              create: (courseModule.lessons ?? []).map((lesson: SampleLesson, lessonIndex: number) => ({
-                title: lesson.title,
-                description: lesson.description ?? "",
-                durationInMs: lesson.durationInMs ?? 0,
-                videoUrl: lesson.videoUrl ?? null,
-                order: lessonIndex,
-              })),
-            },
-          })),
+          set: [],
+          connect: tags.map((name) => ({ name })),
         },
       },
     });
@@ -104,9 +107,14 @@ async function main() {
 }
 
 main()
-  .then(async () => prisma.$disconnect())
+  .then(async () => {
+    await prisma.$disconnect();
+    await pool.end();
+  })
   .catch(async (e) => {
+     
     console.error(e);
     await prisma.$disconnect();
+    await pool.end();
     process.exit(1);
   });
