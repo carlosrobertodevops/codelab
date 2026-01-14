@@ -1,8 +1,5 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
-
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { SearchInput } from '@/components/shared/search-input'
 import { Button } from '@/components/ui/button'
