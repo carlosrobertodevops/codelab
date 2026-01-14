@@ -7,15 +7,16 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:studio": "prisma studio"
+    "prisma:generate": "npx prisma generate --schema=prisma/schema.prisma",
+    "db:migrate": "npx prisma migrate deploy --schema=prisma/schema.prisma",
+    "postinstall": "npx prisma generate --schema=prisma/schema.prisma"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.802.0",
+    "@aws-sdk/s3-request-presigner": "^3.802.0",
     "@clerk/localizations": "^3.14.0",
     "@clerk/nextjs": "^6.18.0",
     "@hello-pangea/dnd": "^18.0.1",
