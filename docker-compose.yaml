@@ -55,7 +55,6 @@ services:
     env_file:
       - .env
     environment:
-      # Garanta coerência: se seu .env tiver DATABASE_URL diferente, ele vence.
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-codelab}:${POSTGRES_PASSWORD:-codelab_dev_password}@db:5432/${POSTGRES_DB:-codelab}?schema=public}
       NODE_ENV: ${NODE_ENV:-development}
       NEXT_TELEMETRY_DISABLED: ${NEXT_TELEMETRY_DISABLED:-1}
@@ -65,21 +64,30 @@ services:
     networks:
       - codelab_net
 
-    # Bind-mount do projeto + cache do Next + node_modules isolado no container
     volumes:
       - ./:/app
       - node_modules:/app/node_modules
       - next_cache:/app/.next
 
     command: >
-      sh -c "
-        # Remove client gerado no host (mac/win) para evitar engines incompatíveis no Linux
-        rm -rf src/generated/prisma || true &&
-        npx prisma generate --schema=prisma/schema.prisma &&
-        npx prisma migrate deploy --schema=prisma/schema.prisma &&
-        node -e \"console.log('Prisma migrate deploy OK')\" &&
+      sh -lc '
+        set -e;
+
+        echo "Boot: ensuring dependencies...";
+        if [ ! -x node_modules/.bin/next ]; then
+          echo "node_modules empty -> running yarn install";
+          yarn install --non-interactive;
+        fi
+
+        echo "Boot: prisma generate/migrate...";
+        rm -rf src/generated/prisma;
+        npx prisma generate --schema=prisma/schema.prisma;
+        npx prisma migrate deploy --schema=prisma/schema.prisma;
+        node -e "console.log(\"Prisma migrate deploy OK\")";
+
+        echo "Boot: starting next...";
         yarn dev -H 0.0.0.0 -p 3000
-      "
+      '
 
 volumes:
   pg_data:
