@@ -1,71 +1,5 @@
-# name: codelab
-
-# services:
-#   db:
-#     image: postgres:16-alpine
-#     container_name: codelab-db
-#     restart: unless-stopped
-#     environment:
-#       POSTGRES_DB: ${POSTGRES_DB:-codelab}
-#       POSTGRES_USER: ${POSTGRES_USER:-codelab}
-#       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-codelab_dev_password}
-#     ports:
-#       - '${POSTGRES_PORT:-5432}:5432'
-#     volumes:
-#       - pg_data:/var/lib/postgresql/data
-#     networks:
-#       - codelab_net
-#     healthcheck:
-#       test:
-#         [
-#           'CMD-SHELL',
-#           'pg_isready -U ${POSTGRES_USER:-codelab} -d ${POSTGRES_DB:-codelab}',
-#         ]
-#       interval: 5s
-#       timeout: 5s
-#       retries: 20
-
-#   pgadmin:
-#     image: dpage/pgadmin4:8
-#     container_name: codelab-pgadmin
-#     restart: unless-stopped
-#     depends_on:
-#       db:
-#         condition: service_healthy
-#     environment:
-#       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@local.dev}
-#       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
-#     ports:
-#       - '${PGADMIN_PORT:-5050}:80'
-#     volumes:
-#       - pgadmin_data:/var/lib/pgadmin
-#     networks:
-#       - codelab_net
-
-#   app:
-#     build:
-#       context: .
-#       dockerfile: Dockerfile
-#     container_name: codelab-app
-#     restart: unless-stopped
-#     depends_on:
-#       db:
-#         condition: service_healthy
-#     env_file:
-#       - .env
-#     ports:
-#       - '${APP_PORT:-3000}:3000'
-#     networks:
-#       - codelab_net
-# volumes:
-#   pg_data:
-#   pgadmin_data:
-
-# networks:
-#   codelab_net:
-#     driver: bridge
-
 name: codelab
+
 services:
   db:
     image: postgres:16-alpine
@@ -90,6 +24,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+
   pgadmin:
     image: dpage/pgadmin4:8
     container_name: codelab-pgadmin
@@ -106,10 +41,12 @@ services:
       - pgadmin_data:/var/lib/pgadmin
     networks:
       - codelab_net
+
   app:
     build:
       context: .
       dockerfile: Dockerfile
+      target: dev
     container_name: codelab-app
     restart: unless-stopped
     depends_on:
@@ -118,29 +55,37 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://codelab:codelab_dev_password@db:5432/codelab?schema=public}
+      # Garanta coerência: se seu .env tiver DATABASE_URL diferente, ele vence.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-codelab}:${POSTGRES_PASSWORD:-codelab_dev_password}@db:5432/${POSTGRES_DB:-codelab}?schema=public}
       NODE_ENV: ${NODE_ENV:-development}
-      PORT: ${APP_PORT:-3000}
       NEXT_TELEMETRY_DISABLED: ${NEXT_TELEMETRY_DISABLED:-1}
+      PORT: ${APP_PORT:-3000}
     ports:
       - '${APP_PORT:-3000}:3000'
     networks:
       - codelab_net
+
+    # Bind-mount do projeto + cache do Next + node_modules isolado no container
+    volumes:
+      - ./:/app
+      - node_modules:/app/node_modules
+      - next_cache:/app/.next
+
     command: >
       sh -c "
+        # Remove client gerado no host (mac/win) para evitar engines incompatíveis no Linux
+        rm -rf src/generated/prisma || true &&
         npx prisma generate --schema=prisma/schema.prisma &&
-        # Só tenta copiar se esse diretório existir (em muitos projetos não existe)
-        if [ -d /app/node_modules/.prisma ]; then
-          rm -rf /app/.prisma && mkdir -p /app/.prisma &&
-          cp -R /app/node_modules/.prisma/* /app/.prisma/ || true;
-        fi &&
         npx prisma migrate deploy --schema=prisma/schema.prisma &&
         node -e \"console.log('Prisma migrate deploy OK')\" &&
-        yarn dev
+        yarn dev -H 0.0.0.0 -p 3000
       "
+
 volumes:
   pg_data:
   pgadmin_data:
+  node_modules:
+  next_cache:
 
 networks:
   codelab_net:

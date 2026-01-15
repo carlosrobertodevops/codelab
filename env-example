@@ -1,11 +1,14 @@
 NODE_ENV=development
 
-# Postgres
-POSTGRES_DB=
-POSTGRES_USER=
-POSTGRES_PASSWORD=
+NEXT_TELEMETRY_DISABLED=1
 
-DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres?schema=public
+POSTGRES_DB=codelab
+POSTGRES_USER=codelab
+POSTGRES_PASSWORD=codelab_dev_password
+POSTGRES_PORT=5432
+
+DATABASE_URL=postgresql://codelab:codelab_dev_password@db:5432/codelab?schema=public
+
 PGADMIN_EMAIL=admin@local.dev
 PGADMIN_PASSWORD=
 

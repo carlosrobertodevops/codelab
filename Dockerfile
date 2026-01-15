@@ -3,115 +3,77 @@
 FROM node:20-alpine AS base
 WORKDIR /app
 RUN apk add --no-cache libc6-compat openssl
-RUN corepack enable
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# -------------------------
-# deps
-# -------------------------
+# =========================
+# deps (install SEM scripts)
+# =========================
 FROM base AS deps
+RUN corepack enable
 COPY package.json yarn.lock ./
-# evita postinstall quebrando (migrate deploy etc.)
+# IMPORTANTE:
+# seu package.json tem "postinstall" que roda Prisma.
+# No estágio deps ainda não existe prisma/schema.prisma, então o postinstall falha.
 RUN yarn install --non-interactive --ignore-scripts
 
-# -------------------------
-# dev (runtime-only)
-# -------------------------
-FROM deps AS dev
-COPY . .
+# =========================
+# dev (para docker-compose DEV)
+# =========================
+FROM base AS dev
+RUN corepack enable
+COPY --from=deps /app/node_modules ./node_modules
 EXPOSE 3000
-CMD ["yarn", "dev"]
+# Em DEV o compose sobrescreve command, e geralmente fazemos bind-mount do código.
+CMD ["sh", "-c", "yarn dev -H 0.0.0.0 -p 3000"]
 
-# -------------------------
-# prod build
-# -------------------------
-FROM deps AS builder
+# =========================
+# builder (PROD)
+# =========================
+FROM base AS builder
+RUN corepack enable
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+# Remove client gerado do host (normalmente mac/win) para não contaminar o build Linux
+RUN rm -rf src/generated/prisma || true
+
+# Se existir prisma.config.*, evita interferência (você já teve erro de parse nele)
 RUN rm -f prisma.config.ts prisma.config.js prisma.config.mjs || true
+
+# Gera Prisma Client (Linux)
 RUN npx prisma generate --schema=prisma/schema.prisma
-ENV NEXT_TELEMETRY_DISABLED=1
+
+# MUITO IMPORTANTE (output custom):
+# Seu client é importado de src/generated/prisma, então o engine precisa existir relativo a esse output.
+# Copiamos o engine para src/generated/prisma/.prisma/client
+RUN if [ -d node_modules/.prisma/client ]; then \
+  mkdir -p src/generated/prisma/.prisma/client && \
+  cp -R node_modules/.prisma/client/* src/generated/prisma/.prisma/client/ ; \
+  fi
+
+# Build Next
+ENV NEXT_DISABLE_ESLINT=1
 RUN yarn build --no-lint
 
+# =========================
+# runner (PROD)
+# =========================
 FROM base AS runner
+WORKDIR /app
 ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
+
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/yarn.lock ./yarn.lock
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/prisma ./prisma
 
-# MUITO IMPORTANTE no seu projeto:
-# Prisma Client foi gerado em /app/src/generated/prisma (não em node_modules/.prisma)
-COPY --from=builder /app/src/generated/prisma ./src/generated/prisma
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/src/generated ./src/generated
 
 USER nextjs
 EXPOSE 3000
-CMD ["yarn", "start"]
 
-# syntax=docker/dockerfile:1
-
-# FROM node:20-alpine AS base
-# WORKDIR /app
-# RUN apk add --no-cache libc6-compat openssl
-# ENV NEXT_TELEMETRY_DISABLED=1
-
-# # =========================
-# # deps
-# # =========================
-# FROM base AS deps
-# RUN corepack enable
-# COPY package.json yarn.lock ./
-# # Não usar --ignore-scripts aqui para evitar surprises com libs que dependem de postinstall
-# RUN yarn install --non-interactive
-
-# # =========================
-# # builder
-# # =========================
-# FROM base AS builder
-# RUN corepack enable
-# COPY --from=deps /app/node_modules ./node_modules
-# COPY . .
-
-# # Evita Prisma tentar ler prisma.config.ts (quando existe)
-# RUN rm -f prisma.config.ts prisma.config.js prisma.config.mjs || true
-
-# # Gera Prisma Client a partir do schema
-# RUN npx prisma generate --schema=prisma/schema.prisma
-
-# # Garante que o Query Engine fique onde o Prisma (output custom) procura em runtime
-# # (output do client está em src/generated/prisma)
-# RUN if [ -d node_modules/.prisma/client ]; then \
-#   mkdir -p src/generated/prisma/.prisma/client && \
-#   cp -R node_modules/.prisma/client/* src/generated/prisma/.prisma/client/ ; \
-#   fi
-
-# # Build do Next (sem lint)
-# ENV NEXT_DISABLE_ESLINT=1
-# RUN yarn build --no-lint
-
-# # =========================
-# # runner
-# # =========================
-# FROM base AS runner
-# ENV NODE_ENV=production
-# WORKDIR /app
-
-# RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
-
-# COPY --from=builder /app/package.json ./package.json
-# COPY --from=builder /app/yarn.lock ./yarn.lock
-# COPY --from=builder /app/node_modules ./node_modules
-
-# COPY --from=builder /app/public ./public
-# COPY --from=builder /app/.next ./.next
-# COPY --from=builder /app/prisma ./prisma
-# COPY --from=builder /app/src/generated ./src/generated
-
-# USER nextjs
-# EXPOSE 3000
-
-# # Migrações + start
-# CMD ["sh", "-c", "npx prisma migrate deploy --schema=prisma/schema.prisma && node -e \"console.log('Prisma migrate deploy OK')\" && yarn start"]
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=prisma/schema.prisma && node -e \"console.log('Prisma migrate deploy OK')\" && yarn start"]
