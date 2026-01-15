@@ -1,36 +1,34 @@
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarRail,
-} from "@/components/ui/sidebar";
-import Link from "next/link";
-import { ComponentProps } from "react";
+import { Sidebar, SidebarHeader } from '@/components/ui/sidebar'
+import Link from 'next/link'
+import Image from 'next/image'
+import { SidebarNav } from '@/components/shared/app-sidebar/nav'
 
-import Logo from "@/assets/logo.svg";
-import LogoIcon from "@/assets/logo-icon.svg";
-import { NavItems } from "./nav-items";
-import { NavUser } from "./nav-user";
-
-type AppSidebarProps = ComponentProps<typeof Sidebar>;
-
-export const AppSidebar = ({ ...props }: AppSidebarProps) => {
+export const AppSidebar = () => {
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <Sidebar>
       <SidebarHeader className="py-4">
         <Link href="/">
-          <Logo className="w-full max-w-[150px] mx-auto pt-3 sm:hidden group-data-[state=expanded]:block" />
-          <LogoIcon className="w-full max-w-[20px] mx-auto pt-3 hidden group-data-[state=collapsed]:block" />
+          {/* NOTE: SVGs como componentes quebram no Turbopack/Next sem SVGR.
+              Usamos arquivos em /public para evitar loader custom. */}
+          <Image
+            src="/logo.svg"
+            alt="Codelab"
+            width={519}
+            height={79}
+            className="w-full max-w-[150px] mx-auto pt-3 sm:hidden group-data-[state=expanded]:block"
+            priority
+          />
+          <Image
+            src="/logo-icon.svg"
+            alt="Codelab"
+            width={94}
+            height={79}
+            className="w-full max-w-[20px] mx-auto pt-3 hidden group-data-[state=collapsed]:block"
+            priority
+          />
         </Link>
       </SidebarHeader>
-      <SidebarContent>
-        <NavItems />
-      </SidebarContent>
-      <SidebarFooter>
-        <NavUser />
-      </SidebarFooter>
-      <SidebarRail />
+      <SidebarNav />
     </Sidebar>
-  );
-};
+  )
+}

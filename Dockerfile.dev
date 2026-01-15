@@ -1,0 +1,20 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+RUN apk add --no-cache libc6-compat openssl
+RUN corepack enable
+
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Dependências primeiro (cache)
+COPY package.json yarn.lock ./
+RUN yarn install --non-interactive
+
+# Código
+COPY . .
+
+EXPOSE 3000
+
+# Em desenvolvimento, o docker-compose sobrescreve este CMD.
+CMD ["yarn", "dev"]
