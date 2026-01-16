@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const apiKey = process.env.ASAAS_API_KEY;
+const apiKey = "$" + process.env.ASAAS_API_KEY;
 const apiUrl = process.env.ASAAS_API_URL;
 
 if (!apiKey || !apiUrl) {
