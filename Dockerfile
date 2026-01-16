@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 
 FROM node:20-alpine AS base
+ENV NODE_ENV=development
 WORKDIR /app
 RUN apk add --no-cache libc6-compat openssl
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -20,6 +21,7 @@ RUN yarn install --non-interactive --ignore-scripts
 # dev (para docker-compose DEV)
 # =========================
 FROM base AS dev
+ENV NODE_ENV=production
 RUN corepack enable
 COPY --from=deps /app/node_modules ./node_modules
 EXPOSE 3000
