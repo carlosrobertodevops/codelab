@@ -26,7 +26,7 @@ services:
       retries: 20
 
   pgadmin:
-    image: dpage/pgadmin4:8
+    image: dpage/pgadmin4:9.11
     container_name: codelab-pgadmin
     restart: unless-stopped
     depends_on:
