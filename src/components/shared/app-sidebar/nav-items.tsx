@@ -8,13 +8,13 @@ import {
   SidebarMenuButton,
 } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
-import { BookOpen, GraduationCap, Home, Settings } from 'lucide-react'
+import { BookOpen, GraduationCap, Home, Crown } from 'lucide-react'
 
 const items = [
   { title: 'Início', href: '/', icon: Home },
   { title: 'Cursos', href: '/courses', icon: BookOpen },
   { title: 'Meus Cursos', href: '/my-courses', icon: GraduationCap },
-  { title: 'Configurações', href: '/settings', icon: Settings },
+  { title: 'Ranking', href: '/ranking', icon: Crown },
 ]
 
 export const NavItems = () => {
@@ -37,7 +37,7 @@ export const NavItems = () => {
                 isActive && 'bg-muted text-primary font-medium'
               )}
             >
-              <Link href={item.href} className="flex items-center gap-3">
+              <Link href={item.href} className="flex items-baseline gap-4">
                 <Icon className="size-5 shrink-0" />
 
                 {/* Quando colapsado, some o texto */}
