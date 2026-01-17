@@ -1,0 +1,92 @@
+name: codelab-prod
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: codelab-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-codelab}
+      POSTGRES_USER: ${POSTGRES_USER:-codelab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-codelab_prod_password}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - codelab_net
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-codelab} -d ${POSTGRES_DB:-codelab}',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: codelab-pgadmin
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@local.dev}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+      PGADMIN_CONFIG_SERVER_MODE: 'True'
+    ports:
+      - '${PGADMIN_PORT:-5050}:80'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - codelab_net
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: codelab-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: '1'
+      PORT: ${APP_PORT:-3000}
+
+      # Database
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-codelab}:${POSTGRES_PASSWORD:-codelab_prod_password}@db:5432/${POSTGRES_DB:-codelab}?schema=public}
+
+      # Clerk
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+      NEXT_PUBLIC_CLERK_SIGN_IN_URL: ${NEXT_PUBLIC_CLERK_SIGN_IN_URL:-/auth/sign-in}
+      NEXT_PUBLIC_CLERK_SIGN_UP_URL: ${NEXT_PUBLIC_CLERK_SIGN_UP_URL:-/auth/sign-up}
+      NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL: ${NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL:-/}
+      NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL: ${NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL:-/}
+
+      # Asaas
+      ASAAS_API_KEY: ${ASAAS_API_KEY}
+      ASAAS_BASE_URL: ${ASAAS_BASE_URL}
+
+      # Storage / Outros (se usados no projeto)
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_REGION: ${S3_REGION}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+      S3_ENDPOINT: ${S3_ENDPOINT}
+
+    ports:
+      - '${APP_PORT:-3000}:3000'
+    networks:
+      - codelab_net
+
+volumes:
+  pg_data:
+  pgadmin_data:
+
+networks:
+  codelab_net:
+    driver: bridge
