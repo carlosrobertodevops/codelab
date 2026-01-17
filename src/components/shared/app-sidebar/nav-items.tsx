@@ -1,114 +1,54 @@
-"use client";
+'use client'
 
-import { getPurchasedCourses } from "@/actions/courses";
-import { Separator } from "@/components/ui/separator";
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import {
-  SidebarGroup,
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar";
-import { queryKeys } from "@/constants/query-keys";
-import { useUser } from "@clerk/nextjs";
-import { useQuery } from "@tanstack/react-query";
-import {
-  BookOpen,
-  BookUp2,
-  ChartArea,
-  MessageCircle,
-  SquareDashedBottomCode,
-  Trophy,
-  Users,
-} from "lucide-react";
-import Link from "next/link";
+  SidebarMenuButton,
+} from '@/components/ui/sidebar'
+import { cn } from '@/lib/utils'
+import { BookOpen, GraduationCap, Home, Settings } from 'lucide-react'
 
-type NavItem = {
-  label: string;
-  path: string;
-  icon: React.ElementType;
-};
+const items = [
+  { title: 'Início', href: '/', icon: Home },
+  { title: 'Cursos', href: '/courses', icon: BookOpen },
+  { title: 'Meus Cursos', href: '/my-courses', icon: GraduationCap },
+  { title: 'Configurações', href: '/settings', icon: Settings },
+]
 
 export const NavItems = () => {
-  const { user } = useUser();
-
-  const isAdmin = user?.publicMetadata?.role === "admin";
-
-  const { data: purchasedCourses } = useQuery({
-    queryKey: queryKeys.purchasedCourses,
-    queryFn: () => getPurchasedCourses(),
-  });
-
-  const navItems: NavItem[] = [
-    {
-      label: "Cursos",
-      path: "/",
-      icon: SquareDashedBottomCode,
-    },
-    ...(!!purchasedCourses?.length
-      ? [
-          {
-            label: "Meus Cursos",
-            path: "/my-courses",
-            icon: BookUp2,
-          },
-        ]
-      : []),
-    {
-      label: "Ranking",
-      path: "/ranking",
-      icon: Trophy,
-    },
-  ];
-
-  const adminNavItems: NavItem[] = [
-    {
-      label: "Estatísticas",
-      path: "/admin",
-      icon: ChartArea,
-    },
-    {
-      label: "Gerenciar Cursos",
-      path: "/admin/courses",
-      icon: BookOpen,
-    },
-    {
-      label: "Gerenciar Usuários",
-      path: "/admin/users",
-      icon: Users,
-    },
-    {
-      label: "Gerenciar Comentários",
-      path: "/admin/comments",
-      icon: MessageCircle,
-    },
-  ];
-
-  const renderNavItems = (items: NavItem[]) => {
-    return items.map((item) => (
-      <SidebarMenuItem key={item.label}>
-        <SidebarMenuButton asChild tooltip={item.label}>
-          <Link href={item.path}>
-            <item.icon className="text-primary group-data-[collapsible=icon]:text-white hover:text-primary transition-all" />
-            <span>{item.label}</span>
-          </Link>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-    ));
-  };
+  const pathname = usePathname()
 
   return (
-    <SidebarGroup>
-      <SidebarMenu>
-        {renderNavItems(navItems)}
+    <SidebarMenu>
+      {items.map((item) => {
+        const Icon = item.icon
+        const isActive = pathname === item.href
 
-        {isAdmin && (
-          <>
-            <Separator className="my-2" />
+        return (
+          <SidebarMenuItem key={item.href}>
+            <SidebarMenuButton
+              asChild
+              tooltip={item.title}
+              className={cn(
+                // padding simétrico e largura “justa” visualmente
+                'w-full justify-start px-3',
+                isActive && 'bg-muted text-primary font-medium'
+              )}
+            >
+              <Link href={item.href} className="flex items-center gap-3">
+                <Icon className="size-5 shrink-0" />
 
-            {renderNavItems(adminNavItems)}
-          </>
-        )}
-      </SidebarMenu>
-    </SidebarGroup>
-  );
-};
+                {/* Quando colapsado, some o texto */}
+                <span className="truncate group-data-[state=collapsed]:hidden">
+                  {item.title}
+                </span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        )
+      })}
+    </SidebarMenu>
+  )
+}

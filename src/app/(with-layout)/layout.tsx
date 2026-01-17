@@ -24,21 +24,32 @@ export default function Layout({ children }: LayoutProps) {
   const pathname = usePathname()
 
   const isHomePage = pathname === '/'
-
   const isCoursePage = /^\/courses\/(?!details\/).+/.test(pathname)
 
   return (
-    <SidebarProvider>
+    <SidebarProvider
+      defaultOpen
+      // ESSENCIAL: isso controla o sidebar-gap (retângulo vermelho)
+      style={
+        {
+          // largura aberta: ajustada para “Configurações” + padding simétrico
+          '--sidebar-width': '13.75rem',
+          // largura colapsada (ícones): manter compacto e alinhado
+          '--sidebar-width-icon': '3rem',
+        } as React.CSSProperties
+      }
+    >
       <AppSidebar />
-      <SidebarInset>
+
+      <SidebarInset className="ml-0 pl-0">
         <header
           className={cn(
-            'flex h-[70px] shrink-0 border-b items-center px-6 justify-between gap-2',
-            !isHomePage && 'md:hidden'
+            'flex h-[70px] shrink-0 border-b items-center px-6 justify-between gap-2'
           )}
         >
           <div className="flex-1 flex items-center gap-4">
-            <SidebarTrigger className="flex md:hidden -ml-1" />
+            {/* Agora ficará colado na sidebar tanto aberta quanto fechada */}
+            <SidebarTrigger className="flex -ml-1" />
 
             {isHomePage && (
               <Suspense>

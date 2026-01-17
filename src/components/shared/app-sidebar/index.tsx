@@ -1,43 +1,8 @@
-// import { Sidebar, SidebarHeader } from '@/components/ui/sidebar'
-// import Link from 'next/link'
-// import Image from 'next/image'
-// import { SidebarNav } from '@/components/shared/app-sidebar/nav'
-
-// export const AppSidebar = () => {
-//   return (
-//     <Sidebar>
-//       <SidebarHeader className="py-4">
-//         <Link href="/">
-//           {/* NOTE: SVGs como componentes quebram no Turbopack/Next sem SVGR.
-//               Usamos arquivos em /public para evitar loader custom. */}
-//           <Image
-//             src="/logo.svg"
-//             alt="Codelab"
-//             width={519}
-//             height={79}
-//             className="w-full max-w-[150px] mx-auto pt-3 sm:hidden group-data-[state=expanded]:block"
-//             priority
-//           />
-//           <Image
-//             src="/logo-icon.svg"
-//             alt="Codelab"
-//             width={94}
-//             height={79}
-//             className="w-full max-w-[20px] mx-auto pt-3 hidden group-data-[state=collapsed]:block"
-//             priority
-//           />
-//         </Link>
-//       </SidebarHeader>
-//       <SidebarNav />
-//     </Sidebar>
-//   )
-// }
-
 import {
   Sidebar,
-  SidebarHeader,
   SidebarContent,
   SidebarFooter,
+  SidebarHeader,
 } from '@/components/ui/sidebar'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -46,35 +11,45 @@ import { NavUser } from './nav-user'
 
 export const AppSidebar = () => {
   return (
-    <Sidebar>
-      <SidebarHeader className="py-4">
-        <Link href="/">
-          {/* NOTE: SVGs como componentes quebram no Turbopack/Next sem SVGR.
-              Usamos arquivos em /public para evitar loader custom. */}
+    <Sidebar collapsible="icon">
+      <SidebarHeader className="flex items-center justify-center py-3">
+        <Link href="/" className="flex items-center justify-center w-full">
+          {/* Logo expandido (controlado para não ficar gigante) */}
           <Image
             src="/logo.svg"
-            alt="Codelab"
-            width={519}
-            height={79}
-            className="w-full max-w-[150px] mx-auto pt-3 sm:hidden group-data-[state=expanded]:block"
+            alt="CRPHD"
+            width={92}
+            height={24}
+            className="
+              h-7 w-auto max-w-[92px] object-contain
+              transition-all
+              group-data-[state=collapsed]:hidden
+            "
             priority
           />
+
+          {/* Logo colapsado */}
           <Image
             src="/logo-icon.svg"
-            alt="Codelab"
-            width={94}
-            height={79}
-            className="w-full max-w-[20px] mx-auto pt-3 hidden group-data-[state=collapsed]:block"
+            alt="CRPHD"
+            width={24}
+            height={24}
+            className="
+              hidden
+              h-6 w-6 object-contain
+              group-data-[state=collapsed]:block
+            "
             priority
           />
         </Link>
       </SidebarHeader>
 
-      <SidebarContent>
+      {/* Padding simétrico (esq = dir) */}
+      <SidebarContent className="px-3 py-2">
         <NavItems />
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="px-3 pb-3">
         <NavUser />
       </SidebarFooter>
     </Sidebar>
