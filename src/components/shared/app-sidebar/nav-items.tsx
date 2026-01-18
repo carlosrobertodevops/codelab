@@ -65,13 +65,13 @@ export const NavItems = () => {
   const adminNavItems: NavItem[] = [
     { title: 'Estatísticas', href: '/admin', icon: ChartArea },
     {
-      title: 'Gerenciar Cursos',
+      title: 'Cursos',
       href: '/admin/courses',
       icon: SquareDashedBottomCode,
     },
-    { title: 'Gerenciar Usuários', href: '/admin/users', icon: Users },
+    { title: 'Usuários', href: '/admin/users', icon: Users },
     {
-      title: 'Gerenciar Comentários',
+      title: 'Comentários',
       href: '/admin/comments',
       icon: MessageCircle,
     },
@@ -84,7 +84,9 @@ export const NavItems = () => {
       // ativa também para sub-rotas (ex: /admin/courses/123)
       const isActive =
         pathname === item.href ||
-        (item.href !== '/' && pathname.startsWith(item.href))
+        (item.href !== '/' &&
+          item.href !== '/admin' &&
+          pathname.startsWith(item.href))
 
       return (
         <SidebarMenuItem key={item.href}>

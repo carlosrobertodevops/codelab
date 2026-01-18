@@ -3,32 +3,38 @@
 FROM node:20-alpine AS base
 WORKDIR /app
 
+# libs necessárias (prisma / openssl)
 RUN apk add --no-cache libc6-compat openssl
+
+# yarn via corepack (yarn classic)
 RUN corepack enable
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # =========================
-# deps (instala COM devDependencies)
+# deps (instala com devDependencies, sem scripts)
 # =========================
 FROM base AS deps
-# FORÇA ambiente de build como development para não cortar devDependencies
-ENV NODE_ENV=development
+
+# Importante: NÃO dependa de NODE_ENV para instalar devDependencies
+# Yarn classic respeita: YARN_PRODUCTION / npm_config_production
 ENV YARN_PRODUCTION=false
 ENV npm_config_production=false
 
 COPY package.json yarn.lock ./
+
+# evita inconsistência se existir
 RUN rm -f package-lock.json
 
-# instala deps sem rodar postinstall (seu postinstall roda prisma e pode falhar aqui)
+# instala deps sem rodar scripts (seu postinstall roda prisma)
 RUN yarn install --non-interactive --frozen-lockfile --ignore-scripts
 
 # =========================
-# builder
+# builder (gera prisma + build do Next)
 # =========================
 FROM base AS builder
-# mantém build como development para garantir toolchain completa
-ENV NODE_ENV=development
+
+# Mantém devDeps disponíveis, mas roda build como production
 ENV YARN_PRODUCTION=false
 ENV npm_config_production=false
 
@@ -41,7 +47,11 @@ RUN rm -f prisma.config.ts prisma.config.js prisma.config.mjs || true
 # gera Prisma Client (output custom em src/generated/prisma)
 RUN yarn prisma:generate
 
-# build Next
+# Agora sim: build com NODE_ENV=production (evita warning e inconsistências)
+ENV NODE_ENV=production
+ENV NEXT_DISABLE_ESLINT=1
+ENV NEXT_TELEMETRY_DISABLED=1
+
 RUN yarn build
 
 # =========================
@@ -62,7 +72,6 @@ RUN addgroup -S nodejs -g 1001 && adduser -S nextjs -u 1001
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/yarn.lock ./yarn.lock
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
-
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
