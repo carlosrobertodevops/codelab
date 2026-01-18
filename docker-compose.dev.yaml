@@ -45,7 +45,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
       target: dev
     container_name: codelab-app
     restart: unless-stopped
