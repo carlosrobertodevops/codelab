@@ -33,9 +33,9 @@ export default function Layout({ children }: LayoutProps) {
       style={
         {
           // largura aberta: ajustada para “Configurações” + padding simétrico
-          '--sidebar-width': '10.50rem',
+          '--sidebar-width': '15.50rem',
           // largura colapsada (ícones): manter compacto e alinhado
-          '--sidebar-width-icon': '3.50rem',
+          '--sidebar-width-icon': '4.50rem',
         } as React.CSSProperties
       }
     >

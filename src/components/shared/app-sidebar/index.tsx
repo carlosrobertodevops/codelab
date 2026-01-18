@@ -18,10 +18,10 @@ export const AppSidebar = () => {
           <Image
             src="/logo.svg"
             alt="CRPHD"
-            width={64}
+            width={94}
             height={24}
             className="
-              h-7 w-auto max-w-[84px] object-contain
+              h-7 w-auto max-w-[94px] object-contain
               transition-all
               group-data-[state=collapsed]:hidden
             "
