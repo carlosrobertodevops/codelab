@@ -55,7 +55,7 @@ RUN if [ -d node_modules/.prisma/client ]; then \
 
 # Build Next
 ENV NEXT_DISABLE_ESLINT=1
-RUN yarn build --no-lint
+RUN yarn dev --no-lint
 
 # =========================
 # runner (PROD)
