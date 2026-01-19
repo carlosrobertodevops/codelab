@@ -8,6 +8,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { NavItems } from './nav-items'
 import { NavUser } from './nav-user'
+import { Label } from '@/components/ui/label'
 
 export const AppSidebar = () => {
   return (
@@ -42,6 +43,7 @@ export const AppSidebar = () => {
             priority
           />
         </Link>
+        <Label>CRPHD</Label>
       </SidebarHeader>
 
       {/* Padding simétrico (esq = dir) */}
